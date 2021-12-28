@@ -1005,7 +1005,7 @@ def calc_heatmaps_main(existing_ages, dataset, parameters: PlotsCMDParameters):
 
 
 def get_folder_and_file_names(data_path_, parameters: PlotsCMDParameters, age_groups, create_folders=True):
-    output_folder = os.path.join(data_path_, "dataset_plots-20.12")
+    output_folder = os.path.join(data_path_, "dataset_extracted_features")
     heatmap_parent_folder = os.path.join(output_folder, "Heat_maps")
     metadata_folder = os.path.join(output_folder, "Metadata")
 

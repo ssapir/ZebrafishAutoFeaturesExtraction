@@ -15,10 +15,24 @@ Outputs:
 - presentation videos.  
   
 
-## Quick-start
-(Pre-processing) Analyse a specific fish (local): ``` python main.py <data_path> <fish_folder_name>.```
+## Quick-start and analysis steps
+(Pre-processing) Analyse a specific fish: ``` python main.py <data_path> <fish_folder_name>.```
 
-(Processing) Analyse a specific fish (local): ``` python feature_analuysis/fish_environment/main.py <data_path> --fish_name <fish_folder_name> --override.```
+(Processing) Extract features from the dataset: ``` python feature_analysis/fish_environment/main.py <data_path> --fish_name <fish_folder_name> --override.```
+For each output (mat) file of pre-processed data, this main creates extended output (based on feature_analysis/fish_environment/fish_processed_data.py)
+with additional features calculated. 
+
+The output is in 2 forms: "all_fish" is a folder containing the entire data, "inter_bout_intervals" (IBIs) 
+is a subset of the data during beginning and end of each IBI. 
+
+(Post-Processing) Aggregate features: 
+After calculating features, this stage reduce the dataset to specific questions asked about the data, for example 
+aggregate all events based on age and outcome, and extract statistical measures in specific FOV.
+
+``` python feature_analysis/fish_environment/features_utils.py <data_path> --outcome_map_type hit_miss_abort --is_combine_age --heatmap_type=target_only.```
+``` python feature_analysis/fish_environment/features_for_mat.py <data_path> --outcome_map_type hit_miss_abort --is_combine_age --heatmap_type=target_only.```
+
+For each output (mat) file
 
 Read results: see example_run_over_analysis_result_mat_files.py
 
