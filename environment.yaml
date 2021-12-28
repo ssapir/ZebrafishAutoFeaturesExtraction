@@ -1,0 +1,6 @@
+name: opencv_for_behavior
+dependencies:
+  - python=3.7.9
+  - pip
+  - pip:
+    - -r file:requirements.txt
