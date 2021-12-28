@@ -17,5 +17,4 @@ openpyxl==3.0.7
 scikit-image
 scikit-learn
 scipy
-seaborn
 tifffile
