@@ -127,7 +127,7 @@ def annotate_single_frame(frame: np.ndarray, fish_output: FishOutput,
     if annotate_paramecia:
         print("para")
         output = build_struct_for_paramecia_annotation(fish_mat, frame_number, start_frame, event_number)
-        paramecium_tracking.ParameciumTracker.draw_output_on_annotated_frame(an_frame, output=output)
+        paraecia_draw_output_on_annotated_frame(an_frame, output=output)
     if annotate_metadata:
         an_frame = metadata_annotate_single_frame(an_frame, fish_data=fish_mat,
                                                   is_hunt_list=is_hunt_list, fontsize=fontsize, text_color=text_color,
@@ -180,9 +180,104 @@ def build_struct_for_fish_annotation(fish_contours_output, fish_output, frame_nu
     return output
 
 
+class ParameciumOutput:
+    """Holds both paramecia output of 1 frame (analyse result) and of 1 event (post-process)
+    """
+    def __init__(self):
+        self.center = []
+        self.area = []
+        self.status = []
+        self.color = []
+        self.is_ok = True
+        self.ellipse_majors = []
+        self.ellipse_minors = []
+        self.ellipse_dirs = []
+        self.bbox = []
+
+    def reset(self, n_frames, n_paramecia):
+        """Make sure values are of correct size (from n_frames and n_paramecia) & filled with nan values
+
+        :param n_frames:
+        :param n_paramecia:
+        :return: nothing
+        """
+        for val in self.__dict__.values():  # clear all previous values if exist
+            if isinstance(val, list):
+                val.clear()
+
+        self.center = np.full([n_frames, n_paramecia, 2], fill_value=np.nan)
+        for key in ['area', 'ellipse_majors', 'ellipse_minors', 'ellipse_dirs']:
+            self.__setattr__(key, np.full([n_frames, n_paramecia, 1], fill_value=np.nan))
+        self.status = np.full(shape=[n_frames, n_paramecia, 1], fill_value=np.nan)
+        self.color = np.zeros([n_paramecia, 3], dtype=int)
+        self.bbox = np.full([n_frames, n_paramecia, 4, 2], fill_value=np.nan)
+
+    @classmethod
+    def output_from_current_frame(cls, frame_ind, output):
+        """Return ParameciumOutput subset with data of specific frame (from ParameciumOutput of a movie)
+
+        :param frame_ind:
+        :param output:
+        :return:
+        """
+        result = ParameciumOutput()
+        for key in [key for key in output.__dict__.keys() if key not in ['color', 'is_ok']]:
+            val: np.ndarray = output.__dict__[key][frame_ind, :, :]
+            if len(val.shape) > 1 and val.shape[1] == 1:  # list
+                val = val.flatten()
+            result.__setattr__(key, val)
+        result.color = output.color
+        return result
+
+
+def paraecia_draw_output_on_annotated_frame(an_frame, output: ParameciumOutput, add_text=False,
+                                   text_font=cv2.FONT_HERSHEY_SIMPLEX):  # todo abstract function?
+    """Draw ParameciumOutput on current frame. Used both for presentation movies & debug movies.
+
+    :param an_frame:
+    :param output:
+    :param add_text: should add paramecia debug text (True) or not (False, default)
+    :return:
+    """
+    if add_text:
+        col_right_side_text = 680
+        row_right_side_text = 20
+        text_font = cv2.FONT_HERSHEY_SIMPLEX
+        bold = 2
+        cv2.putText(an_frame, "# para {0}".format(len(output.center)),
+                    (col_right_side_text, row_right_side_text), text_font, 0.6, Colors.GREEN, bold)
+
+    for i, center, color in zip(range(len(output.center)), output.center, output.color):
+        if not np.isnan(center).all() and center is not None:
+            if isinstance(color, np.ndarray):
+                color = color.tolist()
+            if len(output.ellipse_dirs) > i and not np.isnan(output.ellipse_majors[i]):
+                maj, minor, orientation = output.ellipse_majors[i], output.ellipse_minors[i], output.ellipse_dirs[i]
+                if not np.isnan([maj, minor, orientation]).all():
+                    # ellipse = (cls.point_to_int(center), cls.point_to_int((maj/2, minor/2)), np.rad2deg(orientation))  # similar to fitEllipse result
+                    # x0, y0 = cls.point_to_int(center)
+                    # x1 = x0 + math.cos(orientation) * 0.5 * maj
+                    # y1 = y0 + math.sin(orientation) * 0.5 * maj
+                    # x2 = x0 + math.sin(orientation) * 0.5 * minor
+                    # y2 = y0 - math.cos(orientation) * 0.5 * minor
+                    # cv2.ellipse(an_frame, ellipse, color, thickness=1)
+                    # cv2.line(an_frame, cls.point_to_int([x0, y0]), cls.point_to_int([x1, y1]), color, 2)
+                    # cv2.line(an_frame, cls.point_to_int([x0, y0]), cls.point_to_int([x2, y2]), color, 2)
+                    pass
+                box = output.bbox[i]
+                if not np.isnan(box).all():
+                    cv2.drawContours(an_frame, [box.astype(int)], -1, color, 2)
+            # cv2.putText(an_frame, "{0}".format(i + 1),
+            #             cls.point_to_int([center[0] + 7, center[1] + 7]), text_font, 0.4, Colors.GREEN)
+            status = output.status[i]
+            # if status != Para.FROM_IMG:
+            #     map_colors = {Para.REPEAT_LAST: Colors.YELLOW, Para.PREDICT: Colors.PURPLE,
+            #                   Para.PREDICT_AND_IMG: Colors.PINK, Para.DOUBLE_PARA: Colors.RED}
+            #     cv2.circle(an_frame, cls.point_to_int(center), 10, map_colors[status])
+
 def build_struct_for_paramecia_annotation(fish_data: FishPreprocessedData, frame_number: int, start_frame: int,
                                           event_number: int):
-    output = paramecium_tracking.ParameciumOutput()
+    output = ParameciumOutput()
     event = [ev for ev in fish_data.events if ev.event_id == event_number]
     if len(event) != 1:
         print("Error. For fish {0} found {1} events for event-num {2}".format(fish_data.metadata.name, len(event), event_number))
