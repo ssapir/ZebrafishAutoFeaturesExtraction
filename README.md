@@ -16,7 +16,8 @@ Outputs:
   
 
 ## Quick-start and analysis steps
-(Pre-processing) Analyse a specific fish: ``` python main.py <data_path> <fish_folder_name>.```
+By now you should have ran the ~/ZebrafishBehaviorTracking/scripts/run_events_parallel.sh fishname script and own the folders debug_movies, debug_paramecia_movies, processed_data
+
 
 ### (Processing) Extract features from the dataset
 ``` python feature_analysis/fish_environment/main.py <data_path> --fish_name <fish_folder_name> --override.```
