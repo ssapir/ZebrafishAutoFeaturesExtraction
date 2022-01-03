@@ -16,16 +16,19 @@ Outputs:
   
 
 ## Quick-start and analysis steps
-(Pre-processing) Analyse a specific fish: ``` python main.py <data_path> <fish_folder_name>.```
+By now you should have ran the ~/ZebrafishBehaviorTracking/scripts/run_events_parallel.sh fishname script and own the folders debug_movies, debug_paramecia_movies, processed_data
 
-(Processing) Extract features from the dataset: ``` python feature_analysis/fish_environment/main.py <data_path> --fish_name <fish_folder_name> --override.```
+
+### (Processing) Extract features from the dataset
+``` python feature_analysis/fish_environment/main.py <data_path> --fish_name <fish_folder_name> --override.```
+
 For each output (mat) file of pre-processed data, this main creates extended output (based on feature_analysis/fish_environment/fish_processed_data.py)
 with additional features calculated. 
 
 The output is in 2 forms: "all_fish" is a folder containing the entire data, "inter_bout_intervals" (IBIs) 
 is a subset of the data during beginning and end of each IBI. 
 
-(Post-Processing) Aggregate features: 
+### (Post-Processing) Aggregate features
 After calculating features, this stage reduce the dataset to specific questions asked about the data, for example 
 aggregate all events based on age and outcome, and extract statistical measures in specific FOV.
 
@@ -35,6 +38,14 @@ aggregate all events based on age and outcome, and extract statistical measures 
 
 For each output (mat) file
 
+### Visualize results
+In addition to pre-processing debug videos, you can create presentation videos using:
+``` python scripts/python_scripts/main_annotate_presentation_movie.py <data_path> <fish_folder_name>```
+
+The script uses function draw_output_on_annotated_frame of the trackers for annotation.
+
+
+### Read results
 Read results: see example_run_over_analysis_result_mat_files.py
 
 ### (Parallel) analysis on slurm server
