@@ -20,11 +20,13 @@ from utils.video_utils import VideoFromRaw
 
 partial = False
 ANGLES = {'narrow': (np.nan, 45), 'forward': (np.nan, 90), 'front_sides': (90, 180),
-          'front': (np.nan, 180), 'ang_270': (np.nan, 270), 'wide_360': (np.nan, 360),
+          'front': (np.nan, 180), #'ang_270': (np.nan, 270), 'wide_360': (np.nan, 360),  # remove these
           'tail': (90, 225)}
-#DISTANCE_LIST_IN_MM = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-#DISTANCE_LIST_IN_MM = np.array(range(1, 41, 1)) / 4
-DISTANCE_LIST_IN_MM = np.concatenate([np.array(range(1, 41, 1)) / 8, np.array(range(21, 41, 1)) / 4])
+
+# high and low res distances
+#DISTANCE_LIST_IN_MM = np.concatenate([np.array(range(1, 41, 1)) / 8, np.array(range(21, 41, 1)) / 4])
+#DISTANCE_LIST_IN_MM = np.array(range(1, 21, 1)) / 4
+DISTANCE_LIST_IN_MM = np.concatenate([np.array(range(1, 31, 1)) / 8, np.array(range(4, 11, 1))])
 
 
 class ParameciaStatus(enum.Enum):
@@ -300,7 +302,7 @@ class ParameciumRelativeToFish(Paramecium):
             if np.isnan(head_origin_point).any() or np.isnan(head_direction_angle).any():
                 logging.error(
                     "Fish event {0} has nan values in either of frames {1} & {2} for head origin/angle. Skip".format(
-                     event_name, frame_ind, prev_frame_ind))
+                        event_name, frame_ind, prev_frame_ind))
                 continue
 
             if not (np.isnan([head_origin_x[prev_frame_ind], head_origin_y[prev_frame_ind]]).any()):
@@ -454,6 +456,15 @@ class ExpandedEvent(Event):
         self.is_inter_bout_interval_only = is_inter_bout_interval_only
 
     @staticmethod
+    def calc_velocity_norm(x, y):
+        tail_points = np.array([x, y]).transpose()
+        tail_point_differences = np.diff((tail_points[1:], tail_points[0:-1]), axis=0)[0]
+        zeros_for_padding = np.zeros(shape=(1, 2),)
+        tail_point_differences_padded = np.concatenate([zeros_for_padding, tail_point_differences])
+        velocity_norms = np.linalg.norm(x=tail_point_differences_padded, axis=1)
+        return velocity_norms
+
+    @staticmethod
     def fix_is_bout_detection(tail: Tail, event_name, bout_threshold=3.1, min_len=6, min_len_ibi=5, allowed_holes=3):
         """Patch to fix issues in previous analysis
 
@@ -466,6 +477,9 @@ class ExpandedEvent(Event):
             starting_indices = to_list(np.where(diffs == 1)[0])
             ending_indices = to_list(np.where(diffs == -1)[0])
             return starting_indices, ending_indices
+        if np.isnan(tail.velocity_norms).all():
+            logging.error("Event {0} has all nan velocity norms. Calculate it myself".format(event_name))
+            tail.velocity_norms = ExpandedEvent.calc_velocity_norm(x=tail.tail_tip_point_list.x, y=tail.tail_tip_point_list.y)
         is_bouts = tail.velocity_norms >= bout_threshold
         # fill small holes- should be minimal since it pushes the start-end of segments by 1-3 frames
         is_bouts = np.array(pd.Series(is_bouts).rolling(window=1 * 2 + 1, min_periods=1).median()).astype(bool)
@@ -517,7 +531,7 @@ class ExpandedEvent(Event):
 
         # make sure IBIs are identified as expected (without length, but all is correct for IBI count)
         if not (len(ending_indices) + 1 == len(starting_indices) and ((starting_indices[1:]-ending_indices) > 0).all()) \
-           or not (len(ending_indices) == len(starting_indices) and ((starting_indices[1:]-ending_indices[-1]) > 0).all()):
+                or not (len(ending_indices) == len(starting_indices) and ((starting_indices[1:]-ending_indices[-1]) > 0).all()):
             logging.error("start_end_bout_indices- Fish event {0} has wrong IBIs: start {1} end {2}".format(
                 event.event_name, starting_indices, ending_indices))
 
