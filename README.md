@@ -32,11 +32,15 @@ is a subset of the data during beginning and end of each IBI.
 After calculating features, this stage reduce the dataset to specific questions asked about the data, for example 
 aggregate all events based on age and outcome, and extract statistical measures in specific FOV.
 
-``` python feature_analysis/fish_environment/features_utils.py <data_path> --outcome_map_type hit_miss_abort --is_combine_age --heatmap_type=target_only.```
-
 ``` python feature_analysis/fish_environment/features_for_mat.py <data_path> --outcome_map_type hit_miss_abort --is_combine_age --heatmap_type=target_only.```
+ 
+Output a mat file called <age_group><outcome>_outcome_<paramecia_density>_nparamecia_<type>_heatmap_data_features_in_fov.mat 
+(example: age_v2_hit_miss_abort_outcome_n30_nparamecia_target_only_heatmap_data_features_in_fov.mat)
 
-For each output (mat) file
+This mat file contains struct with:
+-- FOV features per event - appears under <distance>.<angle> inner struct
+-- Per event features (general, not per FOV) - appears under event_data inner struct.
+The struct is nested, s.t. the parameters appears in the path (fieldnames are age, outcomes...)
 
 ### Visualize results
 In addition to pre-processing debug videos, you can create presentation videos using:
