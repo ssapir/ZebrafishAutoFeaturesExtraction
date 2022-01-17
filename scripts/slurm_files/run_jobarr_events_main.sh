@@ -61,7 +61,7 @@ source ~/anaconda3/bin/activate
 conda init
 
 # Use predefined opencv env (from env file)
-conda activate opencv_contrib_for_behavior
+conda activate $opencv_conda_env
 
 start_time=$(date)
 echo "Start $start_time"
