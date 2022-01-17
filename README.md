@@ -33,14 +33,20 @@ After calculating features, this stage reduce the dataset to specific questions 
 aggregate all events based on age and outcome, and extract statistical measures in specific FOV.
 
 ``` python feature_analysis/fish_environment/features_for_mat.py <data_path> --outcome_map_type hit_miss_abort --is_combine_age --heatmap_type=target_only.```
- 
+(the other parameters are default) 
+
+
 Output a mat file called <age_group><outcome>_outcome_<paramecia_density>_nparamecia_<type>_heatmap_data_features_in_fov.mat 
 (example: age_v2_hit_miss_abort_outcome_n30_nparamecia_target_only_heatmap_data_features_in_fov.mat)
 
-This mat file contains struct with:
--- FOV features per event - appears under <distance>.<angle> inner struct
--- Per event features (general, not per FOV) - appears under event_data inner struct.
-The struct is nested, s.t. the parameters appears in the path (fieldnames are age, outcomes...)
+This mat file contains struct, nested, s.t. the parameters appears in the path (fieldnames are age, outcomes...).
+Contains:
+- FOV features per event - appears under <distance>.<angle> inner struct
+    - example: a_5_7.miss.d_0_3_mm.forward
+- Per event features (general, not per FOV) - appears under event_data inner struct.
+    - example: a_5_7.miss.event_data
+
+There is a code example in matlab that loop over the fields, if needed
 
 ### Visualize results
 In addition to pre-processing debug videos, you can create presentation videos using:
