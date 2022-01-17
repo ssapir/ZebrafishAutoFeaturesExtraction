@@ -5,7 +5,7 @@ dir=`dirname $(realpath $0)`
 
 ################# Parameters ############################
 
-CONFIG_PATH=$dir/parameters_events.cfg
+CONFIG_PATH=$dir/parameters_feeding_assay.cfg
 fish_pref='202'  # 2021/2020 prefix
 
 # (read cfg file after validating content)

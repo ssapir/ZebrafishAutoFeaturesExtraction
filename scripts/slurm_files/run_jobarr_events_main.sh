@@ -9,10 +9,6 @@
 
 # Slurm paramters (memory should be enough by default, -t can be removed (default is higher))
 #SBATCH -t 02:00:00
-#SBATCH --ntasks=1
-
-# commented mem adaptation
-#S B A T C H --mem 10G
 
 ################# Parameters ################################
 
@@ -20,16 +16,18 @@
 # Note: Event number is calculated from slurm parameters (its numbers)
 dataset_path=$1
 fish=$2
+repository_relative_to_script_path=$3
+opencv_conda_env=$4
 
 # allow using the same script on 3 use cases
 args=''
-if [[ $# -ge 3 ]]; then
-  if [[ "$3" == "--full" ]] ; then
+if [[ $# -ge 5 ]]; then
+  if [[ "$5" == "--full" ]] ; then
      args='--full'
-  elif [[ "$3" == "--control"  ]]; then
+  elif [[ "$5" == "--control"  ]]; then
      args='--control_data'
   else
-     echo "error: unknown 3rd argument $3" >&2; exit 1
+     echo "error: unknown 3rd argument $5" >&2; exit 1
   fi
 fi
 

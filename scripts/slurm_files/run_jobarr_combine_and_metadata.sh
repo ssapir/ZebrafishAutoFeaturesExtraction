@@ -12,17 +12,30 @@
 
 dataset_path=$1
 fish=$2
+repository_relative_to_script_path=$3
+opencv_conda_env=$4
 args=''
 suf=''
-if [[ $# -ge 3 ]]; then
-  if [[ "$3" == "--full" ]] ; then
+is_metadata=0
+
+# this supports both 
+# inside the github's repo, I use a config file for similar purpose
+if [[ $# -ge 5 ]]; then
+  if [[ "$5" == "--full" ]] ; then
      args='--full'
      suf='_whole_movie'
-  elif [[ "$3" == "--control"  ]]; then
+  elif [[ "$5" == "--control"  ]]; then
      args='--control_data'
      suf='_control'
-  else
-     echo "error: unknown 3rd argument $3" >&2; exit 1
+  elif [[ "$5" == "--metadata" ]] ; then
+     is_metadata=1
+  elif [[ $# -eq 5 ]]; then  # no 6th
+     echo "error: unknown 5rd argument $@" >&2; exit 1
+  fi
+  if [[ $# -ge 6 ]]; then
+      if [[ "$6" == "--metadata" ]] ; then
+        is_metadata=1
+      fi
   fi
 fi
 
@@ -31,6 +44,8 @@ curr_date=$(date +%F_time_%H-%M-%S)
 
 input_args=$@ # save if needed
 shift $# # remove arguments - this is preventing bug in source usage below
+
+################# Main (same code can be used manually) #############################
 
 # check if script is started via SLURM or bash
 if [ -n $SLURM_JOB_ID ];  then
@@ -44,19 +59,21 @@ fi
 # get script's path 
 path=$(dirname $SCRIPT_PATH)
 
-################# Main (same code can be used manually) #############################
 
 # activate anaconda installed on your user (Default: /ems/..../<lab>/<user>/anaconda3
 source ~/anaconda3/bin/activate
 conda init
 
-# Use predefined opencv - this should be created from env file
-conda activate opencv_for_behavior 
+# Use predefined opencv env
+conda activate $opencv_conda_env
 
-# Export working directory to allow pipeline_scripts to use main modules - path is relative to script path
-export PYTHONPATH=$PYTHONPATH:$path/../../../ZebrafishBehaviorTracking/
-python $path/../../scripts/python_scripts/main_combine_parallel.py $dataset_path $fish $args
-python $path/../../scripts/python_scripts/main_metadata.py $dataset_path $fish $args
+# Export working directory to allow pipeline_scripts to use main modules
+export PYTHONPATH=$PYTHONPATH:$path/../$repository_relative_to_script_path
+python $path/../$repository_relative_to_script_path/scripts/python_scripts/main_combine_parallel.py $dataset_path $fish $args
+
+if [[ $is_metadata == 1 ]]; then
+    python $path/../$repository_relative_to_script_path/scripts/python_scripts/main_metadata.py $dataset_path $fish $args
+fi
 
 conda deactivate
 

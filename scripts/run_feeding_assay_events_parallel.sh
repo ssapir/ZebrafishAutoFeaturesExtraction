@@ -4,7 +4,7 @@ set -e
 ################# Parameters ############################
 
 dir=`dirname $(realpath $0)` # script path
-CONFIG_PATH=$dir/parameters_events.cfg
+CONFIG_PATH=$dir/parameters_feeding_assay.cfg
 
 ################# Genetic code  #############################
 
@@ -31,6 +31,9 @@ else
    fish='20200720-f2'
 fi
 
+input_args=$@ # save if needed
+shift $# # remove arguments - this is preventing bug in source usage below
+
 f1="$dataset_path/$fish/processed_data$suf/"
 f2="$dataset_path/$fish/debug_movies$suf/"
 
@@ -43,22 +46,18 @@ if ! [[ $n_events =~ $re ]] ; then
    echo "error: Not a number" >&2; exit 1
 fi
 
-# create folders if doesn't exist (before parallel run) - needed?
-#mkdir -p $f1
-#mkdir -p $f2
-
 num=$(( $n_events - 1))
 echo "# events: $n_events, n_jobs: 0-$num"
 
 ################# Main (pipeline build, run 'squeue --me' to follow jobs) #############################
 
 # Create multiple jobs for analysis using jobarray feature
-jobarrout=$(sbatch --job-name=events-$fish$name --array 0-$num $dir/slurm_files/run_jobarr_events_main.sh $dataset_path $fish $args)
+jobarrout=$(sbatch --job-name=events-$fish$name --array 0-$num $dir/slurm_files/run_jobarr_events_main.sh $dataset_path $fish $repository_relative_to_script_path $opencv_conda_env $args)
 jobarrid=$(echo $jobarrout | rev | cut -d ' ' -f1 | rev)
 echo "id $jobarrid from $jobarrout "
 
 # depend on finishing jobarray => call metadata
-combineout=$(sbatch --job-name=combine-$fish$name --depend=afterany:$jobarrid $dir/slurm_files/run_jobarr_combine_and_metadata.sh $dataset_path $fish $args)
+combineout=$(sbatch --job-name=combine-$fish$name --depend=afterany:$jobarrid $dir/slurm_files/run_jobarr_combine_and_metadata.sh $dataset_path $fish $repository_relative_to_script_path $opencv_conda_env $args --metadata)
 combineid=$(echo $combineout | rev | cut -d ' ' -f1 | rev)
 
 # wait for all jobs finish - chmod even if failed

@@ -15,7 +15,7 @@ if [[ "$#" -gt 1 ]]; then
    mem="$3G"
    echo "$fish and mem $mem" 
 else
-   CONFIG_PATH=$dir/parameters_events.cfg
+   CONFIG_PATH=$dir/parameters_feeding_assay.cfg
    fish='20200720-f2'
    #ids="1,2,5,9"
    mem="10G"
@@ -68,14 +68,14 @@ fi
 echo run jobarray 
 
 jobs=""
-jobarrout=$(sbatch --mem=$mem --job-name=re-events-$fish$name --array $ids $dir/run_jobarr_events_main.sh $dataset_path $fish $args)
+jobarrout=$(sbatch --mem=$mem --job-name=re-events-$fish$name --array $ids $dir/run_jobarr_events_main.sh $dataset_path $fish $repository_relative_to_script_path $opencv_conda_env $args)
 jobarrid=$(echo $jobarrout | rev| cut -d ' ' -f1 | rev)
 jobs=$(echo $jobs:$jobarrid)
 
 echo jobarray $jobs
 
 # depend on successfull finish of jobarray => call metadata
-combineout=$(sbatch --job-name=re-combine-$fish$name --depend=afterany$jobs $dir/run_jobarr_combine_and_metadata.sh $dataset_path $fish $args)
+combineout=$(sbatch --job-name=re-combine-$fish$name --depend=afterany$jobs $dir/run_jobarr_combine_and_metadata.sh $dataset_path $fish $repository_relative_to_script_path $opencv_conda_env $args --metadata)
 combineid=$(echo $combineout | rev| cut -d ' ' -f1 | rev)
 
 # wait for all jobs finish - chmod even if failure
