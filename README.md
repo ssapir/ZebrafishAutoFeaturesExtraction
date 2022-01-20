@@ -32,7 +32,7 @@ is a subset of the data during beginning and end of each IBI.
 After calculating features, this stage reduce the dataset to specific questions asked about the data, for example 
 aggregate all events based on age and outcome, and extract statistical measures in specific FOV.
 
-``` python feature_analysis/fish_environment/features_for_mat.py <data_path> --outcome_map_type hit_miss_abort --is_combine_age --heatmap_type=target_only.```
+``` python feature_analysis/fish_environment/features_for_mat.py <data_path> * --outcome_map_type hit_miss_abort --is_combine_age --heatmap_type=target_only.```
 (the other parameters are default) 
 
 

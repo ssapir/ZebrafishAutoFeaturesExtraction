@@ -33,8 +33,9 @@ source ~/anaconda3/bin/activate
 conda init
 conda activate $opencv_conda_env
 
+echo "feature_analysis/fish_environment/main.py $dataset_path --fish_name $fish --override"
 export PYTHONPATH=$PYTHONPATH:$path/../$repository_relative_to_script_path
-python $path/../$repository_relative_to_script_path/feature_analysis/fish_environment/main.py $dataset_path --fish_name $fish
+python $path/../$repository_relative_to_script_path/feature_analysis/fish_environment/main.py $dataset_path --fish_name $fish --override
 end_time=$(date)
 echo "Stop $end_time"
 
