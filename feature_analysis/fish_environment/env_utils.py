@@ -64,16 +64,16 @@ class CombineAgeGroups(enum.Enum):
 
 
 class HeatmapType(enum.Enum):
-    all = 1
+    all_para = 1
     target_only = 2
-    no_target = 3
+    residuals = 3
 
     def __str__(self):
         return self.name
 
 
 class OutcomeMapType(enum.Enum):
-    all = 1
+    all_outcome = 1
     strike_abort = 2
     hit_miss_abort = 3
     hit_miss_abort_es_abort_noes = 4
@@ -82,13 +82,32 @@ class OutcomeMapType(enum.Enum):
         return self.name
 
 
+class FeedingType(enum.Enum):
+    all_feeding = 1
+    before_feeding = 2
+    after_feeding = 3
+
+    def __str__(self):
+        return self.name
+
+    @staticmethod
+    def map_feeding_str(feeding_str):
+        if 'before morning' in feeding_str:
+            return FeedingType.before_feeding
+        elif 'after' in feeding_str:
+            return FeedingType.after_feeding
+        return FeedingType.all_feeding
+
+
 class PlotsCMDParameters:
     """Hold default args and cmd input overrides.
     This is passed to functions (combined as 1 struct since there are many)
     """
-    heatmap_type = HeatmapType.no_target
+    heatmap_type = HeatmapType.all_para
+    feeding_type = FeedingType.all_feeding
     heatmap_n_paramecia_type = HeatmapNParameciaType.all
-    outcome_map_type = OutcomeMapType.all
+    outcome_map_type = OutcomeMapType.all_outcome
+    age_groups = CombineAgeGroups.v2
     valid_n_paramecia = [30, 50]
     is_reading_json = False
     is_save_per_fish_heatmap = False
@@ -110,9 +129,9 @@ class PlotsCMDParameters:
 
     def __str__(self):
         return ("is_bounding_box? {0}, gaussian? {1}, is_combine_age? {2}, heatmap_type? {3}, outcomes map: {4}, " + \
-                "is_saving_per_fish? {5}, n_paramecia_type? {6}, age_groups? {7}").format(
+                "is_saving_per_fish? {5}, n_paramecia_type? {6}, feeding? {7}, age_groups? {8}").format(
             self.is_bounding_box, self.gaussian, self.is_combine_age, self.heatmap_type, self.combine_outcomes,
-            self.is_save_per_fish_heatmap, self.heatmap_n_paramecia_type, self.combine_ages)
+            self.is_save_per_fish_heatmap, self.heatmap_n_paramecia_type, self.feeding_type, self.combine_ages)
 
 
 def outcome_to_map(outcome_str, parameters: PlotsCMDParameters):
@@ -146,7 +165,7 @@ def heatmap(event: ExpandedEvent, frame_number, parameters: PlotsCMDParameters,
         return vis, result_maps, []
 
     if (parameters.heatmap_type == HeatmapType.target_only or
-        parameters.heatmap_type == HeatmapType.no_target) and \
+        parameters.heatmap_type == HeatmapType.residuals) and \
             np.isnan(event.paramecium.target_paramecia_index):  # todo no target as well?
         logging.error("Skip heatmap. Paramecia in fov has nan target index for {0}".format(event.event_name))
         return vis, result_maps, []
@@ -170,7 +189,7 @@ def heatmap(event: ExpandedEvent, frame_number, parameters: PlotsCMDParameters,
         box = event.paramecium.bounding_boxes[frame_number, para_ind]
 
         # filter heatmap requested type
-        if parameters.heatmap_type == HeatmapType.no_target and para_ind == event.paramecium.target_paramecia_index:
+        if parameters.heatmap_type == HeatmapType.residuals and para_ind == event.paramecium.target_paramecia_index:
             logging.debug("Ignoring target {0} in event {1} for no_target heatmap".format(para_ind, event.event_name))
             continue
         elif parameters.heatmap_type == HeatmapType.target_only and para_ind != event.paramecium.target_paramecia_index:

@@ -39,6 +39,7 @@ def main(full_files_list, fullfile, processed_path, ibi_processed_path, is_savin
         curr_fish_name = os.path.basename(curr_full_name).split("_")[0]
         output_path = os.path.join(processed_path, curr_fish_name + "_env_processed.mat")
         error_events = os.path.join(processed_path, curr_fish_name + "_thrown_events.csv")
+        exp_f = None
         if not os.path.exists(output_path) or override:
             try:
                 print(curr_full_name)
@@ -47,16 +48,17 @@ def main(full_files_list, fullfile, processed_path, ibi_processed_path, is_savin
                 np.savetxt(error_events, np.array(thrown_events, dtype=str), delimiter=',', fmt='%s')
                 exp_f.export_to_matlab(output_path)
             except Exception as e:
-                print(e)
+                logging.error(e)
                 traceback.print_tb(e.__traceback__)
             print("Saved ", output_path)
         else:
             exp_f = SingleFishAndEnvData.import_from_matlab(output_path)
 
-        ibi_output_path = os.path.join(ibi_processed_path, exp_f.name + "_ibi_processed.mat")
-        inter_bout_interval_data(exp_f)
-        exp_f.export_to_matlab(ibi_output_path)
-        print("Saved ", ibi_output_path)
+        if exp_f is not None:
+            ibi_output_path = os.path.join(ibi_processed_path, exp_f.name + "_ibi_processed.mat")
+            inter_bout_interval_data(exp_f)
+            exp_f.export_to_matlab(ibi_output_path)
+            print("Saved ", ibi_output_path)
 
         if is_saving_whole_dataset:
             all_fish.append(exp_f)  # note - ibis only

@@ -20,11 +20,12 @@ from utils.video_utils import VideoFromRaw
 
 partial = False
 ANGLES = {'narrow': (np.nan, 45), 'forward': (np.nan, 90), 'front_sides': (90, 180),
-          'front': (np.nan, 180), #'ang_270': (np.nan, 270), 'wide_360': (np.nan, 360),  # remove these
+          'front': (np.nan, 180), #'ang_270': (np.nan, 270), 'wide_360': (np.nan, 360),
           'tail': (90, 225)}
-
-# high and low res distances
+#DISTANCE_LIST_IN_MM = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+#DISTANCE_LIST_IN_MM = np.array(range(1, 41, 1)) / 4
 #DISTANCE_LIST_IN_MM = np.concatenate([np.array(range(1, 41, 1)) / 8, np.array(range(21, 41, 1)) / 4])
+#DISTANCE_LIST_IN_MM = np.concatenate([np.array(range(1, 21, 1)) / 4, np.array(range(11, 21, 1)) / 2])
 #DISTANCE_LIST_IN_MM = np.array(range(1, 21, 1)) / 4
 DISTANCE_LIST_IN_MM = np.concatenate([np.array(range(1, 31, 1)) / 8, np.array(range(4, 11, 1))])
 
@@ -48,6 +49,41 @@ def pixels_mm_converters():
     one_mm_in_pixels = np.ceil((img.shape[1] - 70) / 20)  # magic numbers are plate's edges
     one_pixel_in_mm = 1 / one_mm_in_pixels
     return one_mm_in_pixels, one_pixel_in_mm
+
+
+def get_fig_center(h=VideoFromRaw.FRAME_COLS, w=VideoFromRaw.FRAME_ROWS):
+    (cX, cY) = (w // 2, h // 2)
+    return cX, cY
+
+
+def is_points_outside_plate(origin, angle=None, angles_list=None, distance_mm=1, plate_radius_mm=10):
+    def get_fov_end(angles_list_):
+        length = distance_mm * one_mm_in_pixels
+        endy = origin[1] + length * np.sin(np.radians(angles_list_))
+        endx = origin[0] + length * np.cos(np.radians(angles_list_))
+        return endx, endy
+
+    if angle is None and angles_list is None:
+        return np.array([False])
+    if angles_list is None and angle is not None:
+        angles_list = [angle]
+    one_mm_in_pixels, _ = pixels_mm_converters()
+    plate_radius_pxls = plate_radius_mm * one_mm_in_pixels
+    (cX, cY) = get_fig_center()
+    [endx, endy] = get_fov_end(angles_list)
+    return abs(endx - cX)**2 + abs(endy - cY)**2 > plate_radius_pxls**2
+
+
+def get_fov_angles(head_angle_deg, from_angle=None, to_angle=None, step_deg=20):
+    if from_angle is None or np.isnan(from_angle):
+        result = np.arange(head_angle_deg - to_angle / 2, head_angle_deg + to_angle / 2, step=step_deg)
+    else:
+        # both sides
+        result = np.arange(head_angle_deg + from_angle / 2, head_angle_deg + (to_angle - from_angle) + from_angle / 2,
+                           step=step_deg * 2)
+        result = np.concatenate([result, np.arange(head_angle_deg - ((to_angle - from_angle) + from_angle / 2),
+                                                   head_angle_deg - from_angle / 2, step=step_deg * 2)])
+    return np.unique(np.array([fix_angle_range(angle) for angle in result] + [fix_angle_range(head_angle_deg)]))
 
 
 def is_paramecia_in_fov(paramecium, frame_number, para_ind, distance_in_mm=None, from_angle=None, to_angle=None):
@@ -302,7 +338,7 @@ class ParameciumRelativeToFish(Paramecium):
             if np.isnan(head_origin_point).any() or np.isnan(head_direction_angle).any():
                 logging.error(
                     "Fish event {0} has nan values in either of frames {1} & {2} for head origin/angle. Skip".format(
-                        event_name, frame_ind, prev_frame_ind))
+                     event_name, frame_ind, prev_frame_ind))
                 continue
 
             if not (np.isnan([head_origin_x[prev_frame_ind], head_origin_y[prev_frame_ind]]).any()):
@@ -450,9 +486,10 @@ class ExpandedEvent(Event):
         expected_keys = get_function_arg_names(Event.set_metadata)
         self.set_metadata(**dict([(k, event_to_copy.__dict__[k]) for k in expected_keys]))
 
-        self.starting_bout_indices = get_validated_list(starting_bout_indices, inner_type=(int, np.int64))
-        self.ending_bout_indices = get_validated_list(ending_bout_indices, inner_type=(int, np.int64))
-        self.frame_indices = get_validated_list(frame_indices, inner_type=(int, np.int64))
+        add = " (event {0})".format(event_to_copy.event_name)
+        self.starting_bout_indices = get_validated_list(starting_bout_indices, inner_type=(int, np.int32, np.int64), add=add)
+        self.ending_bout_indices = get_validated_list(ending_bout_indices, inner_type=(int, np.int32, np.int64), add=add)
+        self.frame_indices = get_validated_list(frame_indices, inner_type=(int, np.int32, np.int64), add=add)
         self.is_inter_bout_interval_only = is_inter_bout_interval_only
 
     @staticmethod
@@ -531,7 +568,7 @@ class ExpandedEvent(Event):
 
         # make sure IBIs are identified as expected (without length, but all is correct for IBI count)
         if not (len(ending_indices) + 1 == len(starting_indices) and ((starting_indices[1:]-ending_indices) > 0).all()) \
-                or not (len(ending_indices) == len(starting_indices) and ((starting_indices[1:]-ending_indices[-1]) > 0).all()):
+           or not (len(ending_indices) == len(starting_indices) and ((starting_indices[1:]-ending_indices[-1]) > 0).all()):
             logging.error("start_end_bout_indices- Fish event {0} has wrong IBIs: start {1} end {2}".format(
                 event.event_name, starting_indices, ending_indices))
 
