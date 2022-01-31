@@ -32,6 +32,12 @@ is a subset of the data during beginning and end of each IBI.
 After calculating features, this stage reduce the dataset to specific questions asked about the data, for example 
 aggregate all events based on age and outcome, and extract statistical measures in specific FOV.
 
+``` python feature_analysis/fish_environment/feature_utils.py <data_path> * --outcome_map_type hit_miss_abort --is_combine_age --heatmap_type=target_only.```
+(the other parameters are default) 
+
+Output is heatmaps mat file and metadata as a json text file.
+
+
 ``` python feature_analysis/fish_environment/features_for_mat.py <data_path> * --outcome_map_type hit_miss_abort --is_combine_age --heatmap_type=target_only.```
 (the other parameters are default) 
 
@@ -47,7 +53,7 @@ Contains:
     - example: a_5_7.miss.event_data
 
 There is a code example in matlab that loop over the fields, if needed
-
+  
 ### Visualize results
 In addition to pre-processing debug videos, you can create presentation videos using:
 ``` python scripts/python_scripts/main_annotate_presentation_movie.py <data_path> <fish_folder_name>```
