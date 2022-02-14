@@ -9,6 +9,7 @@ from classic_cv_trackers import fish_tracking
 from classic_cv_trackers import paramecium_tracking
 from classic_cv_trackers.abstract_and_common_trackers import Colors
 from classic_cv_trackers.fish_tracking import FrameAnalysisData
+from feature_analysis.fish_environment.fish_processed_data import pixels_mm_converters
 from fish_preprocessed_data import FishPreprocessedData
 from utils import video_utils
 from utils.main_utils import get_parameters, load_annotation_data, FishOutput, FishContoursAnnotationOutput, \
@@ -20,8 +21,8 @@ DISABLE_FRAMES_PROGRESS_BAR = True
 
 def metadata_annotate_single_frame(frame: np.ndarray, fish_data: FishPreprocessedData, event_number, frame_number,
                                    is_hunt_list=[], visualize_video_output=False,
-                                   column_left_side=10, row_left_side=15, space_between_rows=25,
-                                   text_font=cv2.FONT_HERSHEY_SIMPLEX, bold=2):
+                                   column_left_side=10, row_left_side=15, space_between_rows=25, fontsize=6,
+                                   text_color=Colors.GREEN, text_font=cv2.FONT_HERSHEY_SIMPLEX, bold=2):
     event = [ev for ev in fish_data.events if ev.event_id == event_number]
     if len(event) != 1:
         print("Error. For fish {0} found {1} events for event-num {2}".format(fish_data.metadata.name,
@@ -30,54 +31,56 @@ def metadata_annotate_single_frame(frame: np.ndarray, fish_data: FishPreprocesse
     event = event[0]
 
     # calculate size of current font to allow readable api for font scaling calculation
-    text_size = cv2.getTextSize(text="check", fontFace=text_font, fontScale=1, thickness=1)[1]
+    text_size = cv2.getTextSize(text="check", fontFace=text_font, fontScale=1, thickness=bold)[1]
 
     font_size = lambda size: size / text_size
-    font_size_6 = font_size(6)
 
     # todo this is patch to work with old movies: override previous text and add all labels from scratch
-    cv2.rectangle(frame, (column_left_side, 0), (column_left_side + 120, row_left_side + 110), Colors.BLACK, cv2.FILLED)
+    # cv2.rectangle(frame, (column_left_side, 0), (column_left_side + 120, row_left_side + 110), Colors.BLACK, cv2.FILLED)
+    #
+    # cv2.putText(frame, "Paramecia load: {0}".format(fish_data.metadata.num_of_paramecia_in_plate),
+    #             (column_left_side, row_left_side), text_font, font_size(fontsize), Colors.WHITE, thickness=bold)
+    #
+    # row_left_side += space_between_rows
+    #
+    # complex_str = ""
+    # if event.is_complex_hunt:
+    #     complex_str = " (complex)"
+    # cv2.putText(frame, "Outcome: {0}".format(event.outcome_str + complex_str), (column_left_side, row_left_side),
+    #             text_font, font_size(fontsize), Colors.WHITE, thickness=bold)
+    #
+    # row_left_side += space_between_rows
+    # cv2.putText(frame, "Age: {0}".format(fish_data.metadata.age_dpf), (column_left_side, row_left_side), text_font,
+    #             font_size(fontsize), Colors.WHITE, thickness=bold)
+    #
+    # row_left_side += space_between_rows
 
-    cv2.putText(frame, "Paramecia load: {0}".format(fish_data.metadata.num_of_paramecia_in_plate),
-                (column_left_side, row_left_side), text_font, font_size_6, Colors.CYAN, thickness=bold)
-
-    row_left_side += space_between_rows
-
-    complex_str = ""
-    if event.is_complex_hunt:
-        complex_str = " (complex)"
-    cv2.putText(frame, "Outcome: {0}".format(event.outcome_str + complex_str), (column_left_side, row_left_side),
-                text_font, font_size_6, Colors.CYAN, thickness=bold)
-
-    row_left_side += space_between_rows
-    cv2.putText(frame, "Age: {0}".format(fish_data.metadata.age_dpf), (column_left_side, row_left_side), text_font,
-                font_size_6, Colors.CYAN, thickness=bold)
-
-    row_left_side += space_between_rows
-
-    cv2.putText(frame, "# " + str(int(frame_number)), (column_left_side, row_left_side), text_font, font_size_6,
-                Colors.GREEN, thickness=bold)
+    cv2.putText(frame, "" + str(int(1000 * frame_number / 500)) +"ms", (column_left_side, row_left_side), text_font, font_size(fontsize),
+                Colors.WHITE, thickness=bold)
 
     # add hunt. Override fish_tracker hunt
     row_left_side += space_between_rows
     result = "Hunt"
-    color = Colors.PINK
+    color = Colors.WHITE
     if len(is_hunt_list) > 0 and not is_hunt_list[frame_number - 1]:
         result = "No-hunt"
         color = Colors.GREEN
-    cv2.putText(frame, result, (column_left_side, row_left_side), text_font, font_size_6, color, thickness=bold)
+    cv2.putText(frame, result, (column_left_side, row_left_side), text_font, font_size(fontsize), color, thickness=bold)
     row_left_side += space_between_rows
 
     # Add scale bar
     # shape is 900x896. Plate's diameter is 20mm. The plate's distance from the edge is ~33 pixels
-    one_mm_in_pixels = int((frame.shape[1] - 33) / 40)
+    one_mm_in_pixels, one_pixel_in_mm = pixels_mm_converters()
     n_mm = 2
 
-    start_point = (column_left_side, int(frame.shape[1] - 10))
-    end_point = (start_point[0] + one_mm_in_pixels * n_mm, start_point[1])
-    cv2.line(frame, start_point, end_point, Colors.WHITE, thickness=2)
-    cv2.putText(frame, "{0}mm".format(n_mm), (start_point[0], start_point[1] - 10), text_font,
-                fontScale=font_size(4), color=Colors.WHITE)
+    # start_point = (column_left_side, int(frame.shape[1] - 10))
+    # end_point = (start_point[0] + one_mm_in_pixels * n_mm, start_point[1])
+    # cv2.line(frame, start_point, end_point, Colors.WHITE, thickness=2)
+    # cv2.putText(frame, "{0}mm".format(n_mm), (start_point[0], start_point[1] - 10), text_font,
+    #             fontScale=font_size(16), color=Colors.WHITE)
+    # import matplotlib.pyplot as plt
+    # plt.add_artist(ScaleBar(one_pixel_in_mm, "mm", location='lower left', color='w', box_alpha=0,
+    #                        font_properties={"size": 32}, fixed_value=n_mm))
 
     if visualize_video_output:
         cv2.imshow('result', resize(frame))
@@ -89,11 +92,11 @@ def metadata_annotate_single_frame(frame: np.ndarray, fish_data: FishPreprocesse
 def annotate_single_frame(frame: np.ndarray, fish_output: FishOutput,
                           fish_contours_output: FishContoursAnnotationOutput, event_number: int, frame_number: int,
                           start_frame: int, fish_mat: FishPreprocessedData, is_hunt_list,
-                          visualize_video_output=True,
-                          annotate_fish=True, annotate_metadata=True, annotate_paramecia=True,
+                          visualize_video_output=False,
+                          annotate_fish=True, annotate_metadata=True, annotate_paramecia=True, is_adding_eyes_text=True,
                           # change output
-                          column_left_side=10, row_left_side=90, space_bet_text_rows=25,
-                          text_font=cv2.FONT_HERSHEY_SIMPLEX, bold=2):
+                          column_left_side=10, row_left_side=90, space_bet_text_rows=25, fontsize=6, col_right_side=55,
+                          text_color=Colors.GREEN, text_font=cv2.FONT_HERSHEY_SIMPLEX, bold=2):
 
     an_frame = frame.copy()
 
@@ -101,28 +104,33 @@ def annotate_single_frame(frame: np.ndarray, fish_output: FishOutput,
     text_size = cv2.getTextSize(text="check", fontFace=text_font, fontScale=1, thickness=1)[1]
     font_size = lambda size: size / text_size
 
-    cv2.putText(an_frame, "# " + str(int(frame_number)), (column_left_side, row_left_side), text_font, font_size(6),
-                Colors.GREEN, thickness=bold)
-    row_left_side += space_bet_text_rows
+    # cv2.putText(an_frame, "# " + str(int(frame_number)), (column_left_side, row_left_side), text_font, font_size(fontsize),
+    #             Colors.GREEN, thickness=bold)
+    # row_left_side += space_bet_text_rows
 
     # Draw similar to fish tracking - identical code
     if annotate_fish and fish_output.fish_status_list[frame_number - start_frame]:
         output = build_struct_for_fish_annotation(fish_contours_output, fish_output, frame_number, start_frame)
         fish_tracking.ContourBasedTracking.draw_output_on_annotated_frame(an_frame,
+                                                                          fontsize=font_size(fontsize),
+                                                                          text_color=text_color,
                                                                           output=output,
                                                                           is_bout=output.tail_data.is_bout,
                                                                           velocity_norms=output.tail_data.velocity_norms,
                                                                           row_left_side_text=row_left_side,
+                                                                          row_right_side_text=row_left_side,
                                                                           col_left_side_text=column_left_side,
-                                                                          space_between_text_rows=space_bet_text_rows,)
+                                                                          col_right_side_text=col_right_side,
+                                                                          space_between_text_rows=space_bet_text_rows,
+                                                                          is_adding_eyes_text=is_adding_eyes_text)
     if annotate_paramecia:
         output = build_struct_for_paramecia_annotation(fish_mat, frame_number, start_frame, event_number)
         paramecium_tracking.ParameciumTracker.draw_output_on_annotated_frame(an_frame, output=output)
     if annotate_metadata:
         an_frame = metadata_annotate_single_frame(an_frame, fish_data=fish_mat,
-                                                  is_hunt_list=is_hunt_list, 
+                                                  is_hunt_list=is_hunt_list, fontsize=fontsize, text_color=text_color,
                                                   event_number=event_number, frame_number=frame_number,
-                                                  column_left_side=column_left_side,
+                                                  column_left_side=column_left_side, row_left_side=row_left_side,
                                                   space_between_rows=space_bet_text_rows,
                                                   text_font=text_font, bold=bold)
 

@@ -52,6 +52,13 @@ There is a code example in matlab that loop over the fields, if needed
 In addition to pre-processing debug videos, you can create presentation videos using:
 ``` python scripts/python_scripts/main_annotate_presentation_movie.py <data_path> <fish_folder_name>```
 
+Or its new extended version
+``` python feature_analysis/fish_environment/visualize_dataset.py <data_path> <fish_folder_name>```
+
+* data_path is ...\Lab-Shared\Data\FeedingAssay2020\
+* Can add the flag --event_number=1 to create specific-event movie.
+
+
 The script uses function draw_output_on_annotated_frame of the trackers for annotation.
 
 

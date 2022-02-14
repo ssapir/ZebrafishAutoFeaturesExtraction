@@ -717,7 +717,7 @@ def validate_type(obj, wanted_type=(list, np.ndarray)):
         raise TypeError("Instance of type {0} instead of {1}".format(type(obj), wanted_type))
 
 
-def get_validated_list(obj, inner_type):
+def get_validated_list(obj, inner_type, add=""):
     """savemat and loadmat treat 1 object list as object, not list. This code make sure and fix type if needed.
 
     :param obj: input data
@@ -729,6 +729,6 @@ def get_validated_list(obj, inner_type):
     validate_type(obj, wanted_type=(list, np.ndarray))
     if len(obj) > 0:
         if (isinstance(inner_type, (list, tuple)) and np.array(obj).dtype not in inner_type) or \
-           (not isinstance(inner_type, (list, tuple)) and np.array(obj).dtype != inner_type):
-            raise TypeError("Instance of type {0} instead of {1} in array.".format(np.array(obj).dtype, inner_type))
+                (not isinstance(inner_type, (list, tuple)) and np.array(obj).dtype != inner_type):
+            raise TypeError("Instance of type {0} instead of {1} in array.{2}".format(np.array(obj).dtype, inner_type, add))
     return np.array(obj)
