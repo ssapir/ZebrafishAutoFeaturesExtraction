@@ -36,4 +36,4 @@ fi
 input_args=$@ # save if needed
 shift $# # remove arguments - this is preventing bug in source usage below
 
-sbatch --job-name=cut-$fish $dir/slurm_files/run_features_per_fish.sh $dataset_path $fish $repository_relative_to_script_path $opencv_conda_env
+sbatch --job-name=features-$fish $dir/slurm_files/run_features_per_fish.sh $dataset_path $fish $repository_relative_to_script_path $opencv_conda_env
