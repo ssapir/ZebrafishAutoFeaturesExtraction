@@ -48,7 +48,7 @@ def calc_paramecia_counts(dataset: FishAndEnvDataset, parameters: PlotsCMDParame
                  [1.75, 1.875], [2, 2.125], [2.25, 2.375], [2.5, 2.625], [2.75, 2.875], [3, 3.125]]
     else:  # 1/4
         add_d = [[0, 0.375], [0.5, 0.875], [1, 1.375], [1.5, 1.875], [2, 2.375], [2.5, 2.875]]
-    distance_pairs = [[0, 1.5], [1.5, 3], [0, 3], [3, 9],
+    distance_pairs = [[0, 1.5], [1.5, 3], [0, 3], [1.5, 3.5], [1.5, 4],
                       [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 9]] + add_d
     for from_v, to_v in distance_pairs:
         m["{0}-{1}mm".format(from_v, to_v)] = ["d_{0}_mm".format(a).replace(".", "_dot_")
@@ -191,10 +191,10 @@ def calc_paramecia_counts(dataset: FishAndEnvDataset, parameters: PlotsCMDParame
                         fov_counters[key]['event_data']['event_ibi_dur_sec_mean'].append(np.nanmean(cum_durations))
                         fov_counters[key]['event_data']['event_ibi_dur_sec_first'].append(get_cum(0, 0))
                         fov_counters[key]['event_data']['event_ibi_dur_sec_last'].append(get_cum(-1, 0))
-                        fov_counters[key]['event_data']['event_ibi_dur_sec_2nd'].append(get_cum(2, 1))
-                        fov_counters[key]['event_data']['event_ibi_dur_sec_3rd'].append(get_cum(3, 2))
-                        fov_counters[key]['event_data']['event_ibi_dur_sec_4th'].append(get_cum(4, 3))
-                        fov_counters[key]['event_data']['event_ibi_dur_sec_5th'].append(get_cum(5, 4))
+                        fov_counters[key]['event_data']['event_ibi_dur_sec_2nd'].append(get_cum(1, 1))
+                        fov_counters[key]['event_data']['event_ibi_dur_sec_3rd'].append(get_cum(2, 2))
+                        fov_counters[key]['event_data']['event_ibi_dur_sec_4th'].append(get_cum(3, 3))
+                        fov_counters[key]['event_data']['event_ibi_dur_sec_5th'].append(get_cum(4, 4))
 
                     to_l = lambda f, d: np.nan if len(d) == 0 or np.isnan(d).all() else f(d)
                     for _, d_key in enumerate([a for a in fov_counters[key].keys() if a not in ['event_data']]):
@@ -339,11 +339,11 @@ def main(existing_ages, dataset, parameters: PlotsCMDParameters):
             paramecia_in_fov[age_key], fov_fish_counters[age_key] = \
                 calc_paramecia_counts(dataset, parameters=parameters, age=age)
 
-    save_mat_dict(fullpath_output_prefix + "_all_fov_event_features.mat",
+    save_mat_dict(fullpath_output_prefix + "_all_fov_per_events.mat",
                   recursive_fix_key_for_mat(paramecia_in_fov))
-    save_mat_dict(fullpath_output_prefix + "_all_fov_per_fish_features.mat",
+    save_mat_dict(fullpath_output_prefix + "_all_fov_per_fish.mat",
                   recursive_fix_key_for_mat(fov_fish_counters))
-    print(fullpath_output_prefix + "_all_fov_event_features.mat")
+    print(fullpath_output_prefix + "_all_fov_per_event.mat")
 
 
 if __name__ == '__main__':
