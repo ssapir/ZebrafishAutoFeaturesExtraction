@@ -11,7 +11,7 @@
 dataset_path='/ems/elsc-labs/avitan-l/Lab-Shared/Analysis/FeedingAssaySapir/'
 repository_relative_to_script_path='../'
 opencv_conda_env=opencv_contrib_for_behavior
-with_plots=1
+with_plots=0
 
 if [[ "$#" -gt 0 ]]; then
    global_args=$1
@@ -47,9 +47,12 @@ echo "Start $start_time"
 # global sets combine + outcome (metadata names)
 export PYTHONPATH=$PYTHONPATH:$path/../$repository_relative_to_script_path
 common="--gaussian --is_bounding_box"
+echo "features_for_mat.py $dataset_path "*" $common $global_args:"
 python $path/../$repository_relative_to_script_path/feature_analysis/fish_environment/features_for_mat.py $dataset_path "*" $common $global_args 
+python $path/../$repository_relative_to_script_path/feature_analysis/fish_environment/feature_utils.py $dataset_path "*" $common $global_args 
 
 if [[ $with_plots == 1 ]]; then
+echo "plots.py $dataset_path "*" $common $global_args:"
 python $path/../$repository_relative_to_script_path/feature_analysis/fish_environment/plots.py $dataset_path "*" $common $global_args 
 fi
 
