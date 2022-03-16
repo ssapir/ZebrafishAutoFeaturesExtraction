@@ -564,7 +564,7 @@ class ExpandedEvent(Event):
                 ending_indices = ending_indices[:-1]
         elif len(ending_indices) == len(starting_indices) + 1:
             if np.array([(s - e) > 0 for (s, e) in zip(starting_indices, ending_indices[:-1])]).all():
-                starting_indices = np.array([1] + starting_indices)
+                starting_indices = np.concatenate([[0], starting_indices])
 
         # make sure IBIs are identified as expected (without length, but all is correct for IBI count)
         if not (len(ending_indices) + 1 == len(starting_indices) and ((starting_indices[1:]-ending_indices) > 0).all()) \
