@@ -98,7 +98,7 @@ if __name__ == '__main__':
     output_folder = analysis_folder if analysis_folder is not None else data_path
 
     d2 = data_path.replace("Data/FeedingAssay2020", "Analysis/FeedingAssaySapir")
-    add_i, add_o = "", "_23.8"
+    add_i, add_o = "", ""
     if fish_name == "*":  # wildcard fish name + take combined fish data
         full_files_list_ = glob.glob(os.path.join(data_path, "*", "processed_data" + add_o, "*_preprocessed.mat"))
     else:
