@@ -764,6 +764,7 @@ def get_target_paramecia_index(event: ExpandedEvent):
 
 def get_target_paramecia_index_expanded(starting, ending, event_frame_ind, para: ParameciumRelativeToFish, head,
                                         outcome_str, event_name, max_hit_distance_in_mm=5, max_hit_angle_in_deg=22.5,
+                                        max_miss_distance_in_mm=2, max_miss_angle_in_deg=22.5,
                                         max_abort_distance_in_mm=15, max_abort_angle_in_deg=22.5):
     """
     outcomes {0: 'abort,escape', 1: 'miss', 2: 'spit', 3: 'hit', 4: 'abort,no-escape', 5: 'abort,no-target'}
@@ -772,189 +773,126 @@ def get_target_paramecia_index_expanded(starting, ending, event_frame_ind, para:
     :return:
     """
     def validate_max_distance_angle(paramecia_indices, max_distance_in_mm, max_angle_in_deg):
-        # search back x frames for close enough (distance < 40, max angle < 10) paramecia
+        # search back x frames for close enough (distance < x mm, max angle < y deg) paramecia
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore', r'All-NaN (slice|axis) encountered')
-            near_paramecia = np.where(np.nanmin(np.abs(from_fish_distances), axis=0) < max_distance_in_mm)[0]
-            disappeared_paramecia = np.intersect1d(paramecia_indices, near_paramecia)  # make sure it's near
-            in_front_paramecia = np.where(np.nanmin(np.abs(from_fish_diff_angles), axis=0) < max_angle_in_deg)[0]
-            disappeared_paramecia = np.intersect1d(disappeared_paramecia, in_front_paramecia)  # make sure it's near
-        return disappeared_paramecia
+            near_paramecia = np.where(np.nanmin(np.abs(from_fish_static_distances), axis=0) < max_distance_in_mm)[0]
+            in_front_paramecia = np.where(np.nanmin(np.abs(from_fish_static_diff_angles), axis=0) < max_angle_in_deg)[0]
+        return np.intersect1d(np.intersect1d(paramecia_indices, near_paramecia), in_front_paramecia)  # make sure it's near
 
-    def check_hit(recent_frame, older_frame):
+    def check_hit(recent_frame, older_frame):  # search for missing id between the two frames, within fov
         recent_para_indices = np.where(np.isnan(from_fish_distances[recent_frame, :]))[0]
         older_para_indices = np.where(np.isnan(from_fish_distances[older_frame, :]))[0]
-        disappeared_paramecia = np.setdiff1d(recent_para_indices, older_para_indices)
-        disappeared_paramecia = validate_max_distance_angle(disappeared_paramecia,
+        disappeared_paramecia = validate_max_distance_angle(np.setdiff1d(recent_para_indices, older_para_indices),
                                                             max_distance_in_mm=max_hit_distance_in_mm,
                                                             max_angle_in_deg=max_hit_angle_in_deg)
         if len(disappeared_paramecia) == 1:
             return disappeared_paramecia[0]
         return None
 
-    to_frame_ind = event_frame_ind  # always end paramecia should be the one removed when event ended
-    for n_ibis_back in [1, 2, 3]:
-        if len(ending) < n_ibis_back:
-            logging.error("Target paramecia return nan for {2} event {0} ({1} ibis!)".format(event_name, len(ending), outcome_str))
-            return np.nan
-
-        from_frame_ind = ending[-n_ibis_back]
-        # start_frame_ind = starting[-n_ibis_back]
-
-        from_fish_distances = para.distance_from_fish_in_mm[from_frame_ind:(to_frame_ind + 1), :]
-        from_fish_diff_angles = para.diff_from_fish_angle_deg[from_frame_ind:(to_frame_ind + 1), :]
-        from_fish_statuses = para.status_points[from_frame_ind:(to_frame_ind + 1), :]
-
+    def set_matrices_invalid_based_on_status():
         for curr_frame in range(from_fish_distances.shape[0]):  # ignore predictions in this function
             for ignore_status in [ParameciaStatus.PREDICT_AND_IMG, ParameciaStatus.PREDICT, ParameciaStatus.REPEAT_LAST]:
                 from_fish_distances[curr_frame, from_fish_statuses[curr_frame, :] == ignore_status.value] = np.nan
                 from_fish_diff_angles[curr_frame, from_fish_statuses[curr_frame, :] == ignore_status.value] = np.nan
 
+    to_frame_ind = event_frame_ind  # always end paramecia should be the one removed when event ended
+
+    n_ibis_back = -1
+    if "hit" in outcome_str or "spit" in outcome_str:  # Hit: search missing paramecia, between last IBI beginning and strike
+        from_frame_ind = ending[n_ibis_back]
+    elif "miss" in outcome_str:  # Miss: search nearest paramecia, between strike beginning and end
+        from_frame_ind = starting[n_ibis_back]
+    elif "abort" in outcome_str:
+        n_ibis_back = -1
+        from_frame_ind = ending[n_ibis_back]  # todo
+
+    from_fish_statuses = para.status_points[from_frame_ind:(to_frame_ind + 1), :]
+    from_fish_distances = para.distance_from_fish_in_mm[from_frame_ind:(to_frame_ind + 1), :]
+    from_fish_diff_angles = para.diff_from_fish_angle_deg[from_frame_ind:(to_frame_ind + 1), :]
+    set_matrices_invalid_based_on_status()
+
+    from_fish_static_distances, from_fish_static_diff_angles = calc_static_fov_params(head, para, from_frame_ind, to_frame_ind)
+
+    msg_info_str = "({0} event {1}, frames {2}-{3}, IBI {4})".format(outcome_str, event_name, from_frame_ind, to_frame_ind, n_ibis_back)
+
+    if np.isnan(from_fish_distances).all() or np.isnan(from_fish_diff_angles).all():
+        logging.error("Get target: all paramecia are nan {0}".format(msg_info_str))
+        return np.nan
+
+    if "hit" in outcome_str or "spit" in outcome_str:  # search closest missing paramecia for hit event
+        if len(ending) + 1 != len(starting):  # we assume hit event ends with strike bout
+            logging.error("Get target: Error in bout detection (end={0}, start={1})".format(ending, starting))
+            return np.nan
         if from_fish_distances.shape[0] < 10:
-            logging.info("Target paramecia is nan for {3} event {0} (#distances={1} for IBI {2})".format(
-                event_name, from_fish_distances.shape, n_ibis_back, outcome_str))
-            continue
-        if np.isnan(from_fish_distances).all() or np.isnan(from_fish_diff_angles).all():
-            logging.info("Target paramecia is nan for {4} event {0} (frames {1}-{2} has all nan) for IBI {3}".format(
-                event_name, from_frame_ind, to_frame_ind, n_ibis_back, outcome_str))
-            continue
+            logging.error("Get target: not enough frames: {0}<10 {1}".format(from_fish_distances.shape[0], msg_info_str))
+            return np.nan
+        for older_frame in [-10, -20, -30]:  # 10 frames = 20ms
+            if from_fish_distances.shape[0] >= older_frame:  # validate we have enough frames
+                new_paramecia = check_hit(recent_frame=-1, older_frame=older_frame)
+                if new_paramecia is not None:
+                    logging.info("Get target: Found paramecia for -1 & {1} para_ind={0} {2}".format(new_paramecia + 1, older_frame, msg_info_str))
+                    return new_paramecia
+    elif "miss" in outcome_str:
+        if len(ending) + 1 != len(starting):  # we assume miss event ends with strike bout attempt
+            logging.error("Get target: Error in bout detection (end={0}, start={1})".format(ending, starting))
+            return np.nan
 
-        if "hit" in outcome_str or "spit" in outcome_str:  # search closest missing paramecia for hit event
-            new_paramecia = check_hit(recent_frame=-1, older_frame=-10)
-            if new_paramecia is not None:
-                logging.info("Found paramecia for -1 & -10 para_ind={0} ({5} event {1} IBI={4} f: {2}-{3})".format(
-                    new_paramecia + 1, event_name, from_frame_ind, to_frame_ind, n_ibis_back, outcome_str))
-                return new_paramecia
-            #new_paramecia = check_hit(recent_frame=-1, older_frame=start_frame_ind-from_frame_ind)
-            #if new_paramecia is not None:
-            #    logging.info("Found paramecia for -1 & {4} para_ind={0} ({1} IBI={3} f: {1}-{2})".format(
-            #        new_paramecia + 1, event_name, from_frame_ind, to_frame_ind, n_ibis_back,
-            #        start_frame_ind-from_frame_ind))
-            #    return new_paramecia
-            new_paramecia = check_hit(recent_frame=-1, older_frame=0)
-            if new_paramecia is not None:
-                logging.info("Found paramecia for -1 & 0 para_ind={0} ({5} event {1} IBI={4} f: {2}-{3})".format(
-                    new_paramecia + 1, event_name, from_frame_ind, to_frame_ind, n_ibis_back, outcome_str))
-                return new_paramecia
+        # validate and define para within fov (before searching for single target)
+        in_front_paramecia = validate_max_distance_angle(range(from_fish_static_diff_angles.shape[1]),
+                                                         max_angle_in_deg=max_miss_angle_in_deg,
+                                                         max_distance_in_mm=max_miss_distance_in_mm)
+        if len(in_front_paramecia) == 0:
+            logging.error("Get target: Miss FOV is empty (full FOV) {0}".format(msg_info_str))
+            return np.nan
 
-            # compare event start to end (might find several paramecia
-            m_start = np.where(np.isnan(from_fish_distances[0, :]))[0]
-            m_end = np.where(np.isnan(from_fish_distances[-1, :]))[0]
-            new_paramecia = np.setdiff1d(m_end, m_start)
+        smallest_dist_per_paramecia = np.nanmin(from_fish_distances[:, in_front_paramecia], axis=0)
+        new_paramecia = in_front_paramecia[np.nanargmin(smallest_dist_per_paramecia)]
+        logging.info("Get target: Found paramecia for para_ind={0} {1}".format(new_paramecia + 1, msg_info_str))
+        return new_paramecia
+    elif "abort" in outcome_str:
+        # validate and define para within fov (before searching for single target)
+        in_front_paramecia = validate_max_distance_angle(range(from_fish_static_diff_angles.shape[1]),
+                                                         max_angle_in_deg=max_abort_angle_in_deg,
+                                                         max_distance_in_mm=max_abort_distance_in_mm)
+        if len(in_front_paramecia) == 0:
+            logging.error("Get target: Abort FOV is empty (full FOV) {0}".format(msg_info_str))
+            return np.nan
 
-            new_paramecia = validate_max_distance_angle(new_paramecia,
-                                                        max_distance_in_mm=max_hit_distance_in_mm,
-                                                        max_angle_in_deg=max_hit_angle_in_deg)
+        # todo too simple
+        smallest_dist_per_paramecia = np.nanmin(from_fish_distances[:, in_front_paramecia], axis=0)
+        new_paramecia = in_front_paramecia[np.nanargmin(smallest_dist_per_paramecia)]
+        logging.info("Get target: Found paramecia for para_ind={0} {1}".format(new_paramecia + 1, msg_info_str))
+        return new_paramecia
 
-            largest_angle_per_paramecia = np.nanmax(from_fish_diff_angles[:, new_paramecia], axis=0)
-            smallest_dist_per_paramecia = np.nanmin(from_fish_distances[:, new_paramecia], axis=0)
-            if largest_angle_per_paramecia.size == 0 or largest_angle_per_paramecia.size == 0:
-                logging.info("Target paramecia is nan for {0} event {1} for IBI {2} (start-end search)".format(
-                    outcome_str, event_name, n_ibis_back))
-                continue
-            if np.argmin(largest_angle_per_paramecia) == np.argmin(smallest_dist_per_paramecia):
-                logging.info("Found paramecia for start-end, para_ind={0} ({5} event {1} IBI={4} f: {2}-{3})".format(
-                    new_paramecia[np.argmin(smallest_dist_per_paramecia)] + 1,
-                    event_name, from_frame_ind, to_frame_ind, n_ibis_back, outcome_str))
-                return new_paramecia[np.argmin(smallest_dist_per_paramecia)]
-
-        if "abort" in outcome_str or "miss" in outcome_str:
-            if "abort" in outcome_str:
-                if n_ibis_back == 1 and len(ending) > 1:  # for abort it's better to skip 1 bout (both escape and no)
-                    continue
-                elif n_ibis_back >= 1 and len(ending) == 1 and "no-escape" not in outcome_str:
-                    if n_ibis_back > 1:
-                        continue
-                if "no-escape" not in outcome_str:
-                    logging.info("{0} event {1} override frames IBI={2}: {3}-{4}".format(outcome_str, event_name,
-                                                                                         n_ibis_back,
-                                                                                         ending[-n_ibis_back],
-                                                                                         starting[-1] + 1))
-                    from_fish_distances = para.distance_from_fish_in_mm[ending[-n_ibis_back]:(starting[-1] + 1), :]
-                    from_fish_diff_angles = para.diff_from_fish_angle_deg[ending[-n_ibis_back]:(starting[-1] + 1), :]
-                    from_fish_statuses = para.status_points[ending[-n_ibis_back]:(starting[-1] + 1), :]
-                    for curr_frame in range(from_fish_distances.shape[0]):  # ignore predictions in this function
-                        for ignore_status in [ParameciaStatus.PREDICT_AND_IMG, ParameciaStatus.PREDICT,
-                                              ParameciaStatus.REPEAT_LAST]:
-                            from_fish_distances[curr_frame, from_fish_statuses[curr_frame, :] == ignore_status.value] = np.nan
-                            from_fish_diff_angles[curr_frame, from_fish_statuses[curr_frame, :] == ignore_status.value] = np.nan
-
-            # search closest distance from paramecia in front of fish
-            with warnings.catch_warnings():
-                warnings.filterwarnings('ignore', r'All-NaN (slice|axis) encountered')
-                in_front_paramecia = np.where(np.nanmin(np.abs(from_fish_diff_angles), axis=0) < max_abort_angle_in_deg)[0]
-                in_front_paramecia = validate_max_distance_angle(in_front_paramecia,
-                                                                 max_distance_in_mm=max_abort_distance_in_mm,
-                                                                 max_angle_in_deg=max_abort_angle_in_deg)
-                smallest_dist_per_paramecia = np.nanmin(from_fish_distances[-10:, in_front_paramecia], axis=0)
-                if smallest_dist_per_paramecia.size == 0 or np.isnan(smallest_dist_per_paramecia).all():
-                    logging.info("No nearby paramecia in last 10 frames for {0} event {1}. Retry".format(outcome_str,
-                                                                                                         event_name))
-                    smallest_dist_per_paramecia = np.nanmin(from_fish_distances[:, in_front_paramecia], axis=0)
-                    if smallest_dist_per_paramecia.size == 0 or np.isnan(smallest_dist_per_paramecia).all():
-                        logging.info("Target paramecia is nan for {0} event {1} for IBI {2}".format(
-                            outcome_str, event_name, n_ibis_back))
-                        continue
-                logging.info("Found paramecia for in-front distance, para_ind={0} ({5} event {1} IBI={4} f: {2}-{3})".format(
-                    in_front_paramecia[np.nanargmin(smallest_dist_per_paramecia)] + 1,
-                    event_name, from_frame_ind, to_frame_ind, n_ibis_back, outcome_str))
-                return in_front_paramecia[np.nanargmin(smallest_dist_per_paramecia)]
-
-    if "hit" in outcome_str or "spit" in outcome_str or ("abort" in outcome_str and "no-escape" not in outcome_str):
-        # didnt find missing paramecia- try search by distance - patch
-        to_frame_ind = event_frame_ind  # always end paramecia should be the one removed when event ended
-        for n_ibis_back in [1, 2, 3]:
-            if len(ending) < n_ibis_back:
-                logging.error("Target paramecia return nan for {2} event {0} ({1} ibis!)".format(event_name, len(ending), outcome_str))
-                return np.nan
-
-            if "abort" in outcome_str and "no-escape" not in outcome_str:
-                if len(ending) < n_ibis_back + 1:
-                    logging.error(
-                        "Target paramecia return nan for {2} event {0} ({1} ibis!)".format(event_name, len(ending), outcome_str))
-                    return np.nan
-                from_frame_ind = ending[-n_ibis_back-1]
-            else:
-                from_frame_ind = ending[-n_ibis_back]
-
-            from_fish_distances = para.distance_from_fish_in_mm[from_frame_ind:(to_frame_ind + 1), :]
-            from_fish_diff_angles = para.diff_from_fish_angle_deg[from_frame_ind:(to_frame_ind + 1), :]
-            from_fish_statuses = para.status_points[from_frame_ind:(to_frame_ind + 1), :]
-
-            for curr_frame in range(from_fish_distances.shape[0]):  # ignore predictions in this function
-                for ignore_status in [ParameciaStatus.PREDICT_AND_IMG, ParameciaStatus.PREDICT,
-                                      ParameciaStatus.REPEAT_LAST]:
-                    from_fish_distances[curr_frame, from_fish_statuses[curr_frame, :] == ignore_status.value] = np.nan
-                    from_fish_diff_angles[curr_frame, from_fish_statuses[curr_frame, :] == ignore_status.value] = np.nan
-
-            if np.isnan(from_fish_distances).all() or np.isnan(from_fish_diff_angles).all():
-                logging.info("Target paramecia is nan for {3} event {0} (frames {1}-{2} has all nan) for IBI {3}".format(
-                    event_name, from_frame_ind, to_frame_ind, n_ibis_back, outcome_str))
-                continue
-
-            with warnings.catch_warnings():
-                warnings.filterwarnings('ignore', r'All-NaN (slice|axis) encountered')
-                in_front_paramecia = np.where(np.nanmin(np.abs(from_fish_diff_angles), axis=0) < max_hit_angle_in_deg)[0]
-                in_front_paramecia = validate_max_distance_angle(in_front_paramecia,
-                                                                 max_distance_in_mm=max_hit_distance_in_mm,
-                                                                 max_angle_in_deg=max_hit_angle_in_deg)
-
-                smallest_dist_per_paramecia = np.nanmin(from_fish_distances[-10:, in_front_paramecia], axis=0)
-                if smallest_dist_per_paramecia.size == 0 or np.isnan(smallest_dist_per_paramecia).all():
-                    logging.info("No nearby paramecia in last 10 frames for {0} event {1}. Retry".format(outcome_str,
-                                                                                                         event_name))
-                    smallest_dist_per_paramecia = np.nanmin(from_fish_distances[:, in_front_paramecia], axis=0)
-                    if smallest_dist_per_paramecia.size == 0 or np.isnan(smallest_dist_per_paramecia).all():
-                        logging.info("Target paramecia is nan for {0} event {1} for IBI {2}".format(
-                            outcome_str, event_name, n_ibis_back))
-                        continue
-                logging.info("Found paramecia for in-front distance, para_ind={0} ({5} event {1} IBI={4} f: {2}-{3})".format(
-                    in_front_paramecia[np.nanargmin(smallest_dist_per_paramecia)] + 1,
-                    event_name, from_frame_ind, to_frame_ind, n_ibis_back, outcome_str))
-                return in_front_paramecia[np.nanargmin(smallest_dist_per_paramecia)]
-
-    logging.error("Target paramecia return nan for {0} event {1} (end of function)".format(outcome_str, event_name))
+    logging.error("Get target: Cant find single para for {0}".format(msg_info_str))
     return np.nan
+
+    # OLD:
+    # # compare event start to end (might find several paramecia
+    # m_start = np.where(np.isnan(from_fish_distances[0, :]))[0]
+    # m_end = np.where(np.isnan(from_fish_distances[-1, :]))[0]
+    # new_paramecia = np.setdiff1d(m_end, m_start)
+    #
+    # new_paramecia = validate_max_distance_angle(new_paramecia,
+    #                                             max_distance_in_mm=max_hit_distance_in_mm,
+    #                                             max_angle_in_deg=max_hit_angle_in_deg)
+    #
+    # largest_angle_per_paramecia = np.nanmax(from_fish_diff_angles[:, new_paramecia], axis=0)
+    # smallest_dist_per_paramecia = np.nanmin(from_fish_distances[:, new_paramecia], axis=0)
+    # if largest_angle_per_paramecia.size == 0 or largest_angle_per_paramecia.size == 0:
+    #     logging.info("Target paramecia is nan for {0} event {1} for IBI {2} (start-end search)".format(
+    #         outcome_str, event_name, n_ibis_back))
+    #     continue
+    # if np.argmin(largest_angle_per_paramecia) == np.argmin(smallest_dist_per_paramecia):
+    #     logging.info("Found paramecia for start-end, para_ind={0} ({5} event {1} IBI={4} f: {2}-{3})".format(
+    #         new_paramecia[np.argmin(smallest_dist_per_paramecia)] + 1,
+    #         event_name, from_frame_ind, to_frame_ind, n_ibis_back, outcome_str))
+    #     return new_paramecia[np.argmin(smallest_dist_per_paramecia)]
+    # old abort
+    # from_fish_distances = para.distance_from_fish_in_mm[ending[-n_ibis_back]:(starting[-1] + 1), :]
+    # from_fish_diff_angles = para.diff_from_fish_angle_deg[ending[-n_ibis_back]:(starting[-1] + 1), :]
+    # from_fish_statuses = para.status_points[ending[-n_ibis_back]:(starting[-1] + 1), :]
 
 
 class SingleFishAndEnvData:
