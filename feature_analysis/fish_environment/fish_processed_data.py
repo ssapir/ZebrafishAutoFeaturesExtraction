@@ -631,8 +631,9 @@ class ExpandedEvent(Event):
         paramecium._target_paramecia_index = get_target_paramecia_index_expanded(starting_bout_indices,
                                                                                  ending_bout_indices,
                                                                                  event_to_copy.event_frame_ind,
-                                                                                 paramecium,
-                                                                                 event_to_copy.outcome_str,
+                                                                                 head=event_to_copy.head,
+                                                                                 para=paramecium,
+                                                                                 outcome_str=event_to_copy.outcome_str,
                                                                                  event_name=event_to_copy.event_name)
 
         if np.isnan(paramecium.target_paramecia_index):
@@ -715,6 +716,38 @@ class ExpandedEvent(Event):
         return frame_indices
 
 
+def calc_static_fov_params(head, para, from_frame_ind, to_frame_ind):  # todo prone to single fish frame errors in tracking
+    """
+    Calculate distance and angle relative to from_frame_ind time-point
+    :param head: fish head struct
+    :param para: paramecia data struct
+    :param from_frame_ind:
+    :param to_frame_ind:
+    :return:
+    """
+    one_mm_in_pixels, _ = pixels_mm_converters()
+    if np.isnan([head.origin_points.x[from_frame_ind], head.origin_points.y[from_frame_ind], head.directions_in_deg[from_frame_ind]]).any():
+        logging.error("Can't calc static fov. One of the fish data is nan, for frame {0} ({1}, {2}, {3})".format(
+            head.origin_points.x[from_frame_ind], head.origin_points.y[from_frame_ind], head.directions_in_deg[from_frame_ind]))
+        return None, None
+    head_origin_point = [head.origin_points.x[from_frame_ind], head.origin_points.y[from_frame_ind]]
+    head_direction_angle = head.directions_in_deg[from_frame_ind]
+    frames = [a for a in range(from_frame_ind, to_frame_ind + 1)]
+    _distance_from_fish_in_mm = np.full((len(frames), para.center_points.shape[1]), fill_value=np.nan)
+    _diff_from_fish_angle_deg = np.full((len(frames), para.center_points.shape[1]), fill_value=np.nan)
+    for i, frame_ind in tqdm(enumerate(frames), desc="frame number", disable=True):
+        for para_ind in tqdm(range(para.center_points.shape[1]), desc="paramecia number", disable=True):
+            point = para.center_points[frame_ind, para_ind, :]
+            if not np.isnan(point).any():
+                direction_angle = get_angle_to_horizontal(head_origin_point, point)  # fish point of view
+                diff_angle = fix_angle_range(abs(direction_angle - head_direction_angle))
+                if diff_angle > 180:
+                    diff_angle = abs(360 - diff_angle)
+                _distance_from_fish_in_mm[i, para_ind] = distance.euclidean(point, head_origin_point) / one_mm_in_pixels
+                _diff_from_fish_angle_deg[i, para_ind] = diff_angle * np.sign(direction_angle - head_direction_angle)
+    return _distance_from_fish_in_mm, _diff_from_fish_angle_deg
+
+
 def get_target_paramecia_index(event: ExpandedEvent):
     """
     outcomes {0: 'abort,escape', 1: 'miss', 2: 'spit', 3: 'hit', 4: 'abort,no-escape', 5: 'abort,no-target'}
@@ -724,11 +757,12 @@ def get_target_paramecia_index(event: ExpandedEvent):
     :return:
     """
     starting, ending = ExpandedEvent.start_end_bout_indices(event)
-    return get_target_paramecia_index_expanded(starting, ending, event.event_frame_ind, event.paramecium,
-                                               event.outcome_str, event.event_name)
+    return get_target_paramecia_index_expanded(starting=starting, ending=ending, event_frame_ind=event.event_frame_ind,
+                                               para=event.paramecium, head=event.head,
+                                               outcome_str=event.outcome_str, event_name=event.event_name)
 
 
-def get_target_paramecia_index_expanded(starting, ending, event_frame_ind, para: ParameciumRelativeToFish,
+def get_target_paramecia_index_expanded(starting, ending, event_frame_ind, para: ParameciumRelativeToFish, head,
                                         outcome_str, event_name, max_hit_distance_in_mm=5, max_hit_angle_in_deg=22.5,
                                         max_abort_distance_in_mm=15, max_abort_angle_in_deg=22.5):
     """
