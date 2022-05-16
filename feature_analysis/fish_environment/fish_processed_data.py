@@ -266,15 +266,15 @@ class ParameciumRelativeToFish(Paramecium):
                    distance_from_fish_in_mm=data['distance_from_fish_in_mm'],
                    angle_deg_from_fish=data['angle_deg_from_fish'],
                    diff_from_fish_angle_deg=data['diff_from_fish_angle_deg'],
-                   edge_points=data['edge_points'],
-                   field_angle=data['field_angles_deg'],
-                   field_of_view_status=data['field_of_view_status'],
-                   ibi_length_in_secs=data['ibi_length_in_secs'],
+                   edge_points=data.get('edge_points',[]),
+                   field_angle=data.get('field_angles_deg',[]),
+                   field_of_view_status=data.get('field_of_view_status',[]),
+                   ibi_length_in_secs=data.get('ibi_length_in_secs',[]),
                    target_paramecia_ind=data.get('target_paramecia_index_from_0', np.nan),
-                   velocity_norm=data['velocity_norm_mm_sec'],
-                   velocity_direction=data['velocity_direction_mm_sec'],
-                   velocity_towards_fish=data['velocity_towards_fish_mm_sec'],
-                   velocity_orthogonal=data['velocity_orthogonal_mm_sec'])
+                   velocity_norm=data.get('velocity_norm_mm_sec',[]),
+                   velocity_direction=data.get('velocity_direction_mm_sec',[]),
+                   velocity_towards_fish=data.get('velocity_towards_fish_mm_sec',[]),
+                   velocity_orthogonal=data.get('velocity_orthogonal_mm_sec',[]))
 
     @staticmethod
     def velocity2angle(velocity_towards_fish, orthogonal_velocity):
@@ -553,12 +553,9 @@ class ExpandedEvent(Event):
         diffs = np.diff(np.asarray(np.append(is_bouts, is_bouts[-1]), dtype=int))  # -1 is end. 1 is start
         starting_indices = to_list(np.where(diffs == 1)[0])
         ending_indices = to_list(np.where(diffs == -1)[0])
+
         if len(ending_indices) == 0:  # bout end is event frame ind
             ending_indices = to_list(event.event_frame_ind)
-
-        # if len(starting_indices) + 1 == len(ending_indices) and ((starting_indices[1:]-ending_indices)>0).all():
-        #     logging.debug("Event {0} all good".format(event.event_name))
-
         if len(ending_indices) == len(starting_indices):
             if np.array([(s - e) > 0 for (s, e) in zip(starting_indices[1:], ending_indices[:-1])]).all():
                 ending_indices = ending_indices[:-1]
@@ -568,9 +565,10 @@ class ExpandedEvent(Event):
 
         # make sure IBIs are identified as expected (without length, but all is correct for IBI count)
         if not (len(ending_indices) + 1 == len(starting_indices) and ((starting_indices[1:]-ending_indices) > 0).all()) \
-           or not (len(ending_indices) == len(starting_indices) and ((starting_indices[1:]-ending_indices[-1]) > 0).all()):
-            logging.error("start_end_bout_indices- Fish event {0} has wrong IBIs: start {1} end {2}".format(
-                event.event_name, starting_indices, ending_indices))
+           and not (len(ending_indices) == len(starting_indices) and ((starting_indices[1:]-ending_indices[-1]) > 0).all()):
+            logging.error("start_end_bout_indices- Fish {6} event {0} has wrong IBIs: start (#{2}) {1} end (#{4}) {3} (last frame {5})".format(
+                event.event_name, starting_indices, len(starting_indices), ending_indices, len(ending_indices),
+                event.event_frame_ind, event.outcome_str))
 
         return starting_indices, ending_indices
 
