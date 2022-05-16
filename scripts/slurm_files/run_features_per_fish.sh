@@ -1,7 +1,7 @@
 #!/bin/bash
 # Write output as following (%j is JOB_ID)
-#SBATCH -o cluster_behavior_features_zebrafish-%j.out
-#SBATCH -e cluster_behavior_features_zebrafish-%j.err
+#SBATCH -o cluster_behavior_features_zebrafish-%j-%x.out
+##SBATCH -e cluster_behavior_features_zebrafish-%j-%x.err
 
 #SBATCH --mem 35G
 
@@ -18,7 +18,7 @@ curr_date=$(date +%F_time_%H-%M-%S)
 # check if script is started via SLURM or bash
 # if with SLURM: there variable '$SLURM_JOB_ID' will exist
 # `if [ -n $SLURM_JOB_ID ]` checks if $SLURM_JOB_ID is not an empty string
-if [ -n $SLURM_JOB_ID ];  then
+if [ -n "$SLURM_JOB_ID" ];  then
     # check the original location through scontrol and $SLURM_JOB_ID
     SCRIPT_PATH=$(scontrol show job $SLURM_JOBID | awk -F= '/Command=/{print $2}' | cut -f1 -d " ")
 else
@@ -36,6 +36,7 @@ conda activate $opencv_conda_env
 echo "feature_analysis/fish_environment/main.py $dataset_path --fish_name $fish --override"
 export PYTHONPATH=$PYTHONPATH:$path/../$repository_relative_to_script_path
 python $path/../$repository_relative_to_script_path/feature_analysis/fish_environment/main.py $dataset_path --fish_name $fish --override
+#python $path/../$repository_relative_to_script_path/feature_analysis/fish_environment/visualize_dataset.py $dataset_path $fish 
 end_time=$(date)
 echo "Stop $end_time"
 

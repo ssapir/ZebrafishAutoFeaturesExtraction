@@ -5,7 +5,12 @@ set -e
 
 ################# Parameters ############################
 
-dir=`dirname $(realpath $0)` # script path
+if [[ "$#" -gt 1 ]]; then
+   dir=$2
+else
+   dir=`dirname $(realpath $0)` # script path
+fi
+echo "dir: $dir"
 CONFIG_PATH=$dir/parameters_feeding_assay.cfg
 
 ################# Genetic code  #############################
