@@ -726,9 +726,15 @@ def calc_static_fov_params(head, para, from_frame_ind, to_frame_ind):  # todo pr
     :return:
     """
     one_mm_in_pixels, _ = pixels_mm_converters()
+    if max(head.origin_points.x.shape) <= from_frame_ind:  # max-shape is equivalent to len for np array shape (1, x) or (x, 1)
+        logging.error("Can't calc static fov. One of the fish data array is too short," +
+                      " for frame {0} (x={1}, y={2}, d={3})".format(
+                          from_frame_ind, head.origin_points.x.shape, head.origin_points.y.shape, head.directions_in_deg.shape))
+        return None, None
     if np.isnan([head.origin_points.x[from_frame_ind], head.origin_points.y[from_frame_ind], head.directions_in_deg[from_frame_ind]]).any():
-        logging.error("Can't calc static fov. One of the fish data is nan, for frame {0} ({1}, {2}, {3})".format(
-            head.origin_points.x[from_frame_ind], head.origin_points.y[from_frame_ind], head.directions_in_deg[from_frame_ind]))
+        logging.error("Can't calc static fov. One of the fish data is nan," +
+                      " for frame {0} (x={1}, y={2}, d={3})".format(
+                          from_frame_ind, head.origin_points.x[from_frame_ind], head.origin_points.y[from_frame_ind], head.directions_in_deg[from_frame_ind]))
         return None, None
     head_origin_point = [head.origin_points.x[from_frame_ind], head.origin_points.y[from_frame_ind]]
     head_direction_angle = head.directions_in_deg[from_frame_ind]
@@ -799,13 +805,14 @@ def get_target_paramecia_index_expanded(starting, ending, event_frame_ind, para:
     to_frame_ind = event_frame_ind  # always end paramecia should be the one removed when event ended
 
     n_ibis_back = -1
+    from_frame_ind = ending[n_ibis_back]
     if "hit" in outcome_str or "spit" in outcome_str:  # Hit: search missing paramecia, between last IBI beginning and strike
         from_frame_ind = ending[n_ibis_back]
     elif "miss" in outcome_str:  # Miss: search nearest paramecia, between strike beginning and end
         from_frame_ind = starting[n_ibis_back]
     elif "abort" in outcome_str:
-        n_ibis_back = -1
-        from_frame_ind = ending[n_ibis_back]  # todo
+        n_ibis_back = -2 if len(ending) > 1 else -1
+        from_frame_ind = ending[n_ibis_back]  # todo change?
 
     from_fish_statuses = para.status_points[from_frame_ind:(to_frame_ind + 1), :]
     from_fish_distances = para.distance_from_fish_in_mm[from_frame_ind:(to_frame_ind + 1), :]
@@ -813,6 +820,10 @@ def get_target_paramecia_index_expanded(starting, ending, event_frame_ind, para:
     set_matrices_invalid_based_on_status()
 
     from_fish_static_distances, from_fish_static_diff_angles = calc_static_fov_params(head, para, from_frame_ind, to_frame_ind)
+    if from_fish_static_distances is None:  # err in tracking - try one frame after or give up
+        from_fish_static_distances, from_fish_static_diff_angles = calc_static_fov_params(head, para, from_frame_ind + 1, to_frame_ind)
+        if from_fish_static_distances is None:  # err (written inside)
+            return np.nan
 
     msg_info_str = "({0} event {1}, frames {2}-{3}, IBI {4})".format(outcome_str, event_name, from_frame_ind, to_frame_ind, n_ibis_back)
 
@@ -820,29 +831,29 @@ def get_target_paramecia_index_expanded(starting, ending, event_frame_ind, para:
         logging.error("Get target: all paramecia are nan {0}".format(msg_info_str))
         return np.nan
 
-    if "hit" in outcome_str or "spit" in outcome_str:  # search closest missing paramecia for hit event
+    if "hit" in outcome_str or "spit" in outcome_str:  # search closest missing-paramecia for hit event
         if len(ending) + 1 != len(starting):  # we assume hit event ends with strike bout
-            logging.error("Get target: Error in bout detection (end={0}, start={1})".format(ending, starting))
+            logging.error("Get target: Error in bout detection (end={0}, start={1}){2}".format(ending, starting, msg_info_str))
             return np.nan
         if from_fish_distances.shape[0] < 10:
             logging.error("Get target: not enough frames: {0}<10 {1}".format(from_fish_distances.shape[0], msg_info_str))
             return np.nan
         for older_frame in [-10, -20, -30]:  # 10 frames = 20ms
-            if from_fish_distances.shape[0] >= older_frame:  # validate we have enough frames
+            if from_fish_distances.shape[0] >= abs(older_frame):  # validate we have enough frames
                 new_paramecia = check_hit(recent_frame=-1, older_frame=older_frame)
                 if new_paramecia is not None:
                     logging.info("Get target: Found paramecia for -1 & {1} para_ind={0} {2}".format(new_paramecia + 1, older_frame, msg_info_str))
                     return new_paramecia
     elif "miss" in outcome_str:
         if len(ending) + 1 != len(starting):  # we assume miss event ends with strike bout attempt
-            logging.error("Get target: Error in bout detection (end={0}, start={1})".format(ending, starting))
+            logging.error("Get target: Error in bout detection (end={0}, start={1}){2}".format(ending, starting, msg_info_str))
             return np.nan
 
         # validate and define para within fov (before searching for single target)
         in_front_paramecia = validate_max_distance_angle(range(from_fish_static_diff_angles.shape[1]),
                                                          max_angle_in_deg=max_miss_angle_in_deg,
                                                          max_distance_in_mm=max_miss_distance_in_mm)
-        if len(in_front_paramecia) == 0:
+        if len(in_front_paramecia) == 0 or np.isnan(from_fish_distances[:, in_front_paramecia]).all():
             logging.error("Get target: Miss FOV is empty (full FOV) {0}".format(msg_info_str))
             return np.nan
 
@@ -855,7 +866,7 @@ def get_target_paramecia_index_expanded(starting, ending, event_frame_ind, para:
         in_front_paramecia = validate_max_distance_angle(range(from_fish_static_diff_angles.shape[1]),
                                                          max_angle_in_deg=max_abort_angle_in_deg,
                                                          max_distance_in_mm=max_abort_distance_in_mm)
-        if len(in_front_paramecia) == 0:
+        if len(in_front_paramecia) == 0 or np.isnan(from_fish_distances[:, in_front_paramecia]).all():
             logging.error("Get target: Abort FOV is empty (full FOV) {0}".format(msg_info_str))
             return np.nan
 
