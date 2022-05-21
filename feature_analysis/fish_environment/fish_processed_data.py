@@ -514,8 +514,14 @@ class ExpandedEvent(Event):
             starting_indices = to_list(np.where(diffs == 1)[0])
             ending_indices = to_list(np.where(diffs == -1)[0])
             return starting_indices, ending_indices
+
+        if sum(tail.is_bout_frame_list) > 0:  # use existing bout - todo add validation? for now not.
+            return np.array(tail.is_bout_frame_list).astype(bool)
+
+        logging.error("Fix-Bout: Event {0} has no bouts detected. Calculate it myself".format(event_name))
+        # error in existing bout detection
         if np.isnan(tail.velocity_norms).all():
-            logging.error("Event {0} has all nan velocity norms. Calculate it myself".format(event_name))
+            logging.error("Fix-Bout: Event {0} has all nan velocity norms. Calculate it myself".format(event_name))
             tail.velocity_norms = ExpandedEvent.calc_velocity_norm(x=tail.tail_tip_point_list.x, y=tail.tail_tip_point_list.y)
         is_bouts = tail.velocity_norms >= bout_threshold
         # fill small holes- should be minimal since it pushes the start-end of segments by 1-3 frames
@@ -532,7 +538,7 @@ class ExpandedEvent(Event):
                 if e - s < min_len:
                     is_bouts[s:(e + 1)] = False
         else:
-            logging.info("Event {0} has unequal start-end. Using rolling fix".format(event_name))
+            logging.info("Fix-Bout: Event {0} has unequal start-end. Using rolling fix".format(event_name))
             is_bouts = np.array(pd.Series(is_bouts).rolling(window=allowed_holes * 2 + 1,
                                                             min_periods=1).median()).astype(bool)
             is_bouts_temp = np.array(pd.Series(is_bouts)
