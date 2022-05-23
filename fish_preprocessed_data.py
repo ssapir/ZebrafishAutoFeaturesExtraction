@@ -213,8 +213,8 @@ class Head:
 
 
 class Tail:
-    def __init__(self, tail_tip_points: Points, is_bout_frame_list: List[bool], bout_start_frames: List,
-                 bout_end_frames: List, tail_path_list: List[Points], interpolated_tail_path: List,
+    def __init__(self, tail_tip_points: Points, is_bout_frame_list: List[bool], is_bout_list_overridden: bool,
+                 bout_start_frames: List, bout_end_frames: List, tail_path_list: List[Points], interpolated_tail_path: List,
                  swimbladder_points_list: Points, tip_to_swimbladder_distance: List, velocity_norms: List[float]):
         """todo explain each parameter
 
@@ -227,10 +227,12 @@ class Tail:
         :param bout_end_frames: List of bout end frames
         :param velocity_norms:
         """
+        validate_type(is_bout_list_overridden, bool)
         validate_type(tail_tip_points, Points)
         validate_type(swimbladder_points_list, Points)
 
         # todo this is an error. The usage of properties protects the class attributes
+        self.is_bout_list_overridden = is_bout_list_overridden
         self.tail_tip_point_list = tail_tip_points
         self.swimbladder_points_list = swimbladder_points_list
         self.tip_to_swimbladder_distance = tip_to_swimbladder_distance
@@ -244,7 +246,8 @@ class Tail:
     def export_to_struct(self):
         tail_path_list_exported = [tail_path.export_to_struct() for tail_path in self.tail_path_list]
 
-        return {'tail_tip_point_list': self.tail_tip_point_list.export_to_struct(),
+        return {'is_bout_list_overridden': self.is_bout_list_overridden,
+                'tail_tip_point_list': self.tail_tip_point_list.export_to_struct(),
                 'tail_path_list': tail_path_list_exported,
                 'interpolated_tail_path': self.interpolated_tail_path,
                 'is_bout_frame_list': self.is_bout_frame_list,
@@ -264,7 +267,8 @@ class Tail:
             else:
                 tail_path_list_as_points = [Points.from_array(np.array(tail_path), cast_to_float=True) for tail_path in
                                             data['tail_path_list']]
-        return cls(tail_tip_points=Points.import_from_struct(data['tail_tip_point_list']),
+        return cls(is_bout_list_overridden=data.get("is_bout_list_overridden", False),
+                   tail_tip_points=Points.import_from_struct(data['tail_tip_point_list']),
                    is_bout_frame_list=data.get('is_bout_frame_list', []),
                    bout_start_frames=data.get('bout_start_frames', []),
                    bout_end_frames=data.get('bout_end_frames', []),
@@ -603,15 +607,16 @@ class Event:
                              eyes_abs_angle_list,
                              eyes_head_dir_diff_ang_list,
                              eyes_areas_pixels_list),
-                   tail=Tail(Points.from_array(np.array(tail_tip_point_list)),
-                             is_bout_frame_list,
-                             bout_start_frames,
-                             bout_end_frames,
-                             tail_path_list_as_points,
-                             interpolated_tail_path,
-                             Points.from_array(np.array(swimbladder_points_list)),
-                             tip_to_swimbladder_distance,
-                             velocity_norms),
+                   tail=Tail(tail_tip_points=Points.from_array(np.array(tail_tip_point_list)),
+                             is_bout_frame_list=is_bout_frame_list,
+                             bout_start_frames=bout_start_frames,
+                             bout_end_frames=bout_end_frames,
+                             tail_path_list=tail_path_list_as_points,
+                             interpolated_tail_path=interpolated_tail_path,
+                             swimbladder_points_list=Points.from_array(np.array(swimbladder_points_list)),
+                             tip_to_swimbladder_distance=tip_to_swimbladder_distance,
+                             velocity_norms=velocity_norms,
+                             is_bout_list_overridden=False),
                    fish_tracking_status_list=fish_tracking_status_list,
                    is_head_prediction_list=is_head_prediction_list,
                    tail_tip_status_list=tail_tip_status_list,

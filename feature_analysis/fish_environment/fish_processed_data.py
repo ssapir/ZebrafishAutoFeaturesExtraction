@@ -552,7 +552,7 @@ class ExpandedEvent(Event):
             return starting_indices, ending_indices
 
         if sum(tail.is_bout_frame_list) > 0:  # use existing bout - todo add validation? for now not.
-            return np.array(tail.is_bout_frame_list).astype(bool)
+            return np.array(tail.is_bout_frame_list).astype(bool), False
 
         logging.error("Fix-Bout: Event {0} has no bouts detected. Calculate it myself".format(event_name))
         # error in existing bout detection
@@ -581,7 +581,7 @@ class ExpandedEvent(Event):
                                      .rolling(window=int(min_len * 1.5), min_periods=1).sum() >= min_len).astype(bool)
             is_bouts = np.bitwise_or(is_bouts, is_bouts_temp)
 
-        return is_bouts
+        return is_bouts, True
 
     @staticmethod
     def start_end_bout_indices(event: Event):
@@ -646,8 +646,8 @@ class ExpandedEvent(Event):
                                                                            event_to_copy.outcome_str))
             return None, event_to_copy.event_name, "outcome-{0}".format(event_to_copy.outcome_str)
 
-        event_to_copy.tail.is_bout_frame_list = ExpandedEvent.fix_is_bout_detection(event_to_copy.tail,
-                                                                                    event_to_copy.event_name)
+        event_to_copy.tail.is_bout_frame_list, event_to_copy.tail.is_bout_list_overridden = \
+            ExpandedEvent.fix_is_bout_detection(event_to_copy.tail, event_to_copy.event_name)
 
         paramecium = ParameciumRelativeToFish(event_to_copy.paramecium)
         is_data_good = paramecium.calc_paramecia_env_features(event_to_copy.head, event_to_copy.event_name)
