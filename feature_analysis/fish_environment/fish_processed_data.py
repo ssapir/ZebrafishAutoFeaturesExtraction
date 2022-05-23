@@ -164,6 +164,7 @@ def get_custom_class_members(class_instance):
 
 
 class ParameciumRelativeToFish(Paramecium):
+    _distance_from_target_in_mm = []
     _distance_from_fish_in_mm = []
     _angle_deg_from_fish = []
     _diff_from_fish_angle_deg = []
@@ -172,6 +173,10 @@ class ParameciumRelativeToFish(Paramecium):
     _field_of_view_status = []
     _ibi_length_in_secs = []
     _target_paramecia_index = None
+
+    @property
+    def distance_from_target_in_mm(self):
+        return self._distance_from_target_in_mm
 
     @property
     def distance_from_fish_in_mm(self):
@@ -221,9 +226,9 @@ class ParameciumRelativeToFish(Paramecium):
     def target_paramecia_index(self):
         return self._target_paramecia_index
 
-    def __init__(self, paramecium_to_copy: Paramecium, distance_from_fish_in_mm=[], angle_deg_from_fish=[],
-                 diff_from_fish_angle_deg=[], edge_points=[], field_angle=[], field_of_view_status=[],
-                 ibi_length_in_secs=[], target_paramecia_ind=np.nan,
+    def __init__(self, paramecium_to_copy: Paramecium, distance_from_fish_in_mm=[], distance_from_target_in_mm=[],
+                 angle_deg_from_fish=[], diff_from_fish_angle_deg=[], edge_points=[], field_angle=[],
+                 field_of_view_status=[], ibi_length_in_secs=[], target_paramecia_ind=np.nan,
                  velocity_norm=[], velocity_direction=[], velocity_towards_fish=[], velocity_orthogonal=[]):
         super().__init__(center=paramecium_to_copy.center_points, area=paramecium_to_copy.area_points,
                          status=paramecium_to_copy.status_points, color=paramecium_to_copy.color_points,
@@ -231,6 +236,7 @@ class ParameciumRelativeToFish(Paramecium):
                          ellipse_minors=paramecium_to_copy.ellipse_minors,
                          ellipse_dirs=paramecium_to_copy.ellipse_dirs,
                          bounding_boxes=paramecium_to_copy.bounding_boxes)
+        self._distance_from_target_in_mm = get_validated_list(distance_from_target_in_mm, float)
         self._distance_from_fish_in_mm = get_validated_list(distance_from_fish_in_mm, float)
         self._angle_deg_from_fish = get_validated_list(angle_deg_from_fish, float)
         self._diff_from_fish_angle_deg = get_validated_list(diff_from_fish_angle_deg, float)
@@ -246,6 +252,7 @@ class ParameciumRelativeToFish(Paramecium):
 
     def export_to_struct(self):  # this is an example of saving points only (centers) of one trajectory
         result = super().export_to_struct()
+        result['distance_from_target_in_mm'] = np.array(self._distance_from_target_in_mm, dtype=np.float)
         result['distance_from_fish_in_mm'] = np.array(self._distance_from_fish_in_mm, dtype=np.float)
         result['angle_deg_from_fish'] = np.array(self._angle_deg_from_fish, dtype=np.float)
         result['diff_from_fish_angle_deg'] = np.array(self._diff_from_fish_angle_deg, dtype=np.float)
@@ -263,6 +270,7 @@ class ParameciumRelativeToFish(Paramecium):
     @classmethod
     def import_from_struct(cls, data):  # match ctor
         return cls(Paramecium.import_from_struct(data),
+                   distance_from_target_in_mm=data['distance_from_target_in_mm'],
                    distance_from_fish_in_mm=data['distance_from_fish_in_mm'],
                    angle_deg_from_fish=data['angle_deg_from_fish'],
                    diff_from_fish_angle_deg=data['diff_from_fish_angle_deg'],
@@ -372,6 +380,34 @@ class ParameciumRelativeToFish(Paramecium):
                                             self._velocity_orthogonal[i, para_ind])
                     self._ibi_length_in_secs[i, para_ind] = self.frames_to_secs_converter(ibi_frames)
         return True
+
+    def calc_paramecia_vs_target_features(self, event_name: str):
+        """After target was detected, some features are relative to it (distractors vs target)
+
+        :param event_name:
+        :return:
+        """
+        if len(self.center_points.shape) < 2:
+            logging.error("Fish event {0} has wrong bad paramecia centers (shape {1}). Skip".format(
+                event_name, self.center_points.shape))
+            return False
+
+        n_frames, n_paramecia = self.center_points.shape[0:2]
+        if n_frames == 0 or n_paramecia == 0:
+            logging.error("Fish event {0} has bad #paramecia {1} or #frames {2}. Skip".format(
+                event_name, n_paramecia, n_frames))
+            return False
+
+        self._distance_from_target_in_mm = np.full((n_frames, n_paramecia), fill_value=np.nan)
+        one_mm_in_pixels, _ = pixels_mm_converters()
+
+        for frame_ind in tqdm(range(n_frames), desc="frame number", disable=True):
+            target_point = self.center_points[frame_ind, self.target_paramecia_index, :]
+            for para_ind in tqdm(range(n_paramecia), desc="paramecia number", disable=True):
+                point = self.center_points[frame_ind, para_ind, :]
+                if not np.isnan([point, target_point]).any():
+                    self._distance_from_target_in_mm[frame_ind, para_ind] = \
+                        distance.euclidean(point, target_point) / one_mm_in_pixels
 
     def calc_paramecia_env_features(self, head: Head, event_name: str):
         """For each fish,
@@ -646,6 +682,12 @@ class ExpandedEvent(Event):
             logging.info("{1} event {0} is filtered due to nan target".format(event_to_copy.event_name,
                                                                               event_to_copy.outcome_str))
             return None, event_to_copy.event_name, "nan-target"
+
+        is_data_good = paramecium.calc_paramecia_vs_target_features(event_to_copy.event_name)
+        if not is_data_good:
+            logging.info("{1} event {0} is filtered due to bad target vs para features results".format(event_to_copy.event_name,
+                                                                                             event_to_copy.outcome_str))
+            return None, event_to_copy.event_name, "bad-features"
 
         result = cls(event_to_copy, paramecium, is_inter_bout_interval_only=False, frame_indices=frame_indices,
                      starting_bout_indices=starting_bout_indices, ending_bout_indices=ending_bout_indices)
