@@ -55,9 +55,9 @@ def calc_paramecia_counts(dataset: FishAndEnvDataset, parameters: PlotsCMDParame
                                                for a in fish.distances_for_fov_in_mm if from_v <= a <= to_v]
 
     field_names = ["vel_to_fish_{0}_mm_sec", "orth_vel_{0}_mm_sec", "field_angle_{0}_deg",
-                   "diff_angle_{0}_deg", "distance_{0}_mm"]
+                   "diff_angle_{0}_deg", "distance_{0}_mm", "dist_tar_{0}_mm"]
     orig_names = ["velocity_towards_fish_mm_sec", "orthogonal_velocity_mm_sec", "field_angle_deg",
-                  "diff_from_fish_angle_deg", "distance_from_fish_in_mm"]
+                  "diff_from_fish_angle_deg", "distance_from_fish_in_mm", "distance_from_target_in_mm"]
     stat_names = ["mean", "sum", "min", "max", "strong", "max_pos", "max_neg", "mean_pos", "mean_neg", "one_para"]
     stat_funcs = [np.nanmean, np.nansum, np.nanmin, np.nanmax, lambda d: d[np.argmax(np.abs(d))],
                   lambda v: max_sign(v, is_pos=True), lambda v: max_sign(v, is_pos=False),
@@ -249,8 +249,8 @@ def get_fov_features(distances_fish, angles_dict, event, fov_counters, frame_num
                     'orthogonal_velocity_mm_sec': [],
                     'field_angle_deg': [],
                     'diff_from_fish_angle_deg': [],
-                    'distance_from_fish_in_mm': []}
-
+                    'distance_from_fish_in_mm': [],
+                    'distance_from_target_in_mm': []}
 
     origin = [event.head.origin_points.x[frame_number], event.head.origin_points.y[frame_number]]
     head_angle = event.head.directions_in_deg[frame_number]
@@ -321,7 +321,8 @@ def get_fov_features(distances_fish, angles_dict, event, fov_counters, frame_num
                         get_data(paramecium.diff_from_fish_angle_deg, frame_number, curr_indices))
                     temp[angle_key]['distance_from_fish_in_mm'].extend(
                         get_data(paramecium.distance_from_fish_in_mm, frame_number, curr_indices))
-
+                    temp[angle_key]['distance_from_target_in_mm'].extend(
+                        get_data(paramecium.distance_from_target_in_mm, frame_number, curr_indices))
         result[dist] = copy.deepcopy(temp)
     return result
 
