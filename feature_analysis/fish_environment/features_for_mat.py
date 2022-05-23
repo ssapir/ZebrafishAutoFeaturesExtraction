@@ -76,7 +76,8 @@ def calc_paramecia_counts(dataset: FishAndEnvDataset, parameters: PlotsCMDParame
     fov_fish_counters = {}
     event_ibi_fields = ['event_ibi_dur_sec_last', 'event_ibi_dur_sec_first', 'event_ibi_dur_sec_2nd',
                         'event_ibi_dur_sec_3rd', 'event_ibi_dur_sec_4th', 'event_ibi_dur_sec_5th',
-                        'event_ibi_dur_sec_sum', 'event_ibi_dur_sec_mean']
+                        'event_ibi_dur_sec_sum', 'event_ibi_dur_sec_mean', "event_end_frame_ind"]
+    event_ibi_per_bout_fields = ["features_frame_from_0", "bout_start_frame_from_0", "bout_end_frame_from_0", "event_ibi_dur_sec"]
     for key in parameters.combine_outcomes.keys():
         fov_counters[key], fov_fish_counters[key] = {}, {}
         fov_counters[key]['event_data'] = {'fish_names': [], 'event_names': [], 'event_dur_sec': [],
@@ -85,6 +86,11 @@ def calc_paramecia_counts(dataset: FishAndEnvDataset, parameters: PlotsCMDParame
         for ibi_k in event_ibi_fields:
             fov_counters[key]['event_data'][ibi_k] = []
             fov_fish_counters[key]['event_data'][ibi_k] = []
+        for ibi_k in event_ibi_per_bout_fields:
+            fov_counters[key]['event_data'][ibi_k] = {}
+            for velocities_frame_number in velocitiy_values:
+                fov_counters[key]['event_data'][ibi_k][ibi_str_name(velocities_frame_number)] = []
+
         for d_key in m.keys():
             fov_counters[key][d_key], fov_fish_counters[key][d_key] = {}, {}
             for angle_key in fish.angles_for_fov.keys():
@@ -185,6 +191,7 @@ def calc_paramecia_counts(dataset: FishAndEnvDataset, parameters: PlotsCMDParame
                         get_cum = lambda ind, len_thr: cum_durations[ind] if len(cum_durations) > len_thr else np.nan
                         fov_counters[key]['event_data']['fish_names'].append(fish.name)
                         fov_counters[key]['event_data']['event_names'].append(event.event_name)
+                        fov_counters[key]['event_data']['event_end_frame_ind'].append(event.event_frame_ind)
                         fov_counters[key]['event_data']['event_is_valid'].append(is_valid)
                         fov_counters[key]['event_data']['event_dur_sec'].append(event_duration)
                         fov_counters[key]['event_data']['event_ibi_dur_sec_sum'].append(np.nansum(cum_durations))
@@ -195,6 +202,20 @@ def calc_paramecia_counts(dataset: FishAndEnvDataset, parameters: PlotsCMDParame
                         fov_counters[key]['event_data']['event_ibi_dur_sec_3rd'].append(get_cum(2, 2))
                         fov_counters[key]['event_data']['event_ibi_dur_sec_4th'].append(get_cum(3, 3))
                         fov_counters[key]['event_data']['event_ibi_dur_sec_5th'].append(get_cum(4, 4))
+                        try:  # todo this should replace the manual before
+                            fov_counters[key]['event_data']["event_ibi_dur_sec"][
+                                ibi_str_name(velocities_frame_number)].append(
+                                get_cum(velocities_frame_number, velocities_frame_number))
+                        except Exception as e:
+                            print(e)
+
+                    # for all velocities! Metadata for frames
+                    fov_counters[key]['event_data']["features_frame_from_0"][
+                        ibi_str_name(velocities_frame_number)].append(starting_bout_indices[velocities_frame_number])
+                    fov_counters[key]['event_data']["bout_start_frame_from_0"][
+                        ibi_str_name(velocities_frame_number)].append(starting_bout_indices[velocities_frame_number])
+                    fov_counters[key]['event_data']["bout_end_frame_from_0"][
+                        ibi_str_name(velocities_frame_number)].append(ending_bout_indices[velocities_frame_number])
 
                     to_l = lambda f, d: np.nan if len(d) == 0 or np.isnan(d).all() else f(d)
                     for _, d_key in enumerate([a for a in fov_counters[key].keys() if a not in ['event_data']]):
