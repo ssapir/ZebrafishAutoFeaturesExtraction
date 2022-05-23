@@ -142,11 +142,12 @@ def annotate_single_frame_exp(frame: np.ndarray, fish_output: FishOutput,
         row_right_side_text += space_bet_text_rows
 
     if frame_number in ibis:
-        cv2.putText(an_frame, "Inter bout interval", (column_left_side, row_left_side + 6*space_bet_text_rows), text_font, font_size(fontsize),
+        ibi_index = [True if a.start <= frame_number <= a.stop else False for a in indices].index(True)
+        cv2.putText(an_frame, "Inter bout interval ({0} / {1})".format(ibi_index + 1, len(indices)),
+                    (column_left_side, row_left_side + 6*space_bet_text_rows), text_font, font_size(fontsize),
                     Colors.PINK, thickness=bold)
         if target_para_ind is not None:
             vt, vo = None, None
-            ibi_index = [True if a.start <= frame_number <= a.stop else False for a in indices].index(True)
             if len(paramecium_exp.velocity_towards_fish.shape) == 1 and ibi_index == 0:
                 vt = paramecium_exp.velocity_towards_fish[target_para_ind]
                 vo = paramecium_exp.velocity_orthogonal[target_para_ind]
@@ -261,14 +262,14 @@ if __name__ == '__main__':
         dataset = FishAndEnvDataset.import_from_matlab(fullfile)
     else:
         #processed_path = os.path.join(os.path.join(d2, "dataset_features-checked_fish", "data_set_features"), "all_fish")
-        processed_path = os.path.join(os.path.join(d2, "data_set_features", "lilach"), "all_fish")
+        processed_path = os.path.join(os.path.join(d2, "data_set_features", "test_target"), "all_fish")
         output_path = os.path.join(processed_path, parameters.fish_name + "_env_processed.mat")
         # 20200720 - f2_env_processed_small_hunt_abort
         dataset = FishAndEnvDataset([SingleFishAndEnvData.import_from_matlab(output_path)])
     print("Loaded ", vid_names)
 
     #video_output_folder = os.path.join(data_path, "dataset_debug_movies")
-    video_output_folder = os.path.join(d2, "dataset_debug_movies_14.2")
+    video_output_folder = os.path.join(d2, "dataset_debug_movies_test_target")
     create_dirs_if_missing([video_output_folder])
 
     video_data = {}
