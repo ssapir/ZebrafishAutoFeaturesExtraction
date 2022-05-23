@@ -270,7 +270,7 @@ class ParameciumRelativeToFish(Paramecium):
     @classmethod
     def import_from_struct(cls, data):  # match ctor
         return cls(Paramecium.import_from_struct(data),
-                   distance_from_target_in_mm=data['distance_from_target_in_mm'],
+                   distance_from_target_in_mm=data.get('distance_from_target_in_mm', []),
                    distance_from_fish_in_mm=data['distance_from_fish_in_mm'],
                    angle_deg_from_fish=data['angle_deg_from_fish'],
                    diff_from_fish_angle_deg=data['diff_from_fish_angle_deg'],
