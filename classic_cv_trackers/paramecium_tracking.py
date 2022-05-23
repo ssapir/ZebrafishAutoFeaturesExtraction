@@ -126,8 +126,8 @@ class ParameciumTracker(ClassicCvAbstractTrackingAPI):
                     box = output.bbox[i]
                     if not np.isnan(box).all():
                         cv2.drawContours(an_frame, [box.astype(int)], -1, color, 2)
-                # cv2.putText(an_frame, "{0}".format(i + 1),
-                #             cls.point_to_int([center[0] + 7, center[1] + 7]), text_font, 0.4, Colors.GREEN)
+                cv2.putText(an_frame, "{0}".format(i + 1),
+                            cls.point_to_int([center[0] + 7, center[1] + 7]), text_font, 0.4, Colors.GREEN)
                 status = output.status[i]
                 # if status != Para.FROM_IMG:
                 #     map_colors = {Para.REPEAT_LAST: Colors.YELLOW, Para.PREDICT: Colors.PURPLE,
