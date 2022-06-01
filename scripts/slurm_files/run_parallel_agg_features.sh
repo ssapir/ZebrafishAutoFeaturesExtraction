@@ -11,7 +11,7 @@
 dataset_path='/ems/elsc-labs/avitan-l/Lab-Shared/Analysis/FeedingAssaySapir/'
 repository_relative_to_script_path='../'
 opencv_conda_env=opencv_contrib_for_behavior
-with_plots=0
+with_plots=1
 
 if [[ "$#" -gt 0 ]]; then
    global_args=$1
@@ -53,7 +53,7 @@ python $path/../$repository_relative_to_script_path/feature_analysis/fish_enviro
 
 if [[ $with_plots == 1 ]]; then
 echo "plots.py $dataset_path "*" $common $global_args:"
-python $path/../$repository_relative_to_script_path/feature_analysis/fish_environment/plots.py $dataset_path "*" $common $global_args 
+python $path/../$repository_relative_to_script_path/feature_analysis/fish_environment/presentation_plots.py $dataset_path "*" $common $global_args
 fi
 
 end_time=$(date)
