@@ -595,7 +595,7 @@ class ExpandedEvent(Event):
         """
         to_list = lambda x: x if isinstance(x, (list, np.ndarray)) else np.array([x])
         is_bouts = event.tail.is_bout_frame_list[:event.event_frame_ind]
-        diffs = np.diff(np.asarray(np.append(is_bouts, is_bouts[-1]), dtype=int))  # -1 is end. 1 is start
+        diffs = np.diff(np.asarray(np.append(is_bouts[0], is_bouts), dtype=int))  # -1 is end. 1 is start
         starting_indices = to_list(np.where(diffs == 1)[0])
         ending_indices = to_list(np.where(diffs == -1)[0])
 
