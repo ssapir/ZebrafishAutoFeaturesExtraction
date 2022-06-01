@@ -583,7 +583,8 @@ def get_dataset(data_path_, parameters: PlotsCMDParameters, age=None, is_inter_b
                 except Exception as e:
                     logging.error("Error: ", curr, e)
                     traceback.print_tb(e.__traceback__)
-        dataset = FishAndEnvDataset(all_fish)
+        print("# fish in dataset: ", len([f for f in all_fish if len(f.events) > 0]))
+        dataset = FishAndEnvDataset([f for f in all_fish if len(f.events) > 0])
     else:
         dataset = FishAndEnvDataset([SingleFishAndEnvData.import_from_matlab(fish_mat_path(parameters.fish))])
 
@@ -789,7 +790,7 @@ def calc_heatmaps_main(existing_ages, dataset, parameters: PlotsCMDParameters):
 
 
 def get_folder_and_file_names(data_path_, parameters: PlotsCMDParameters, age_groups, create_folders=False):
-    output_folder = os.path.join(data_path_, "features", "checked")
+    output_folder = os.path.join(data_path_, "features", "new_bout_target")
     heatmap_parent_folder = output_folder # os.path.join(output_folder, "Heat_maps")
     metadata_folder = output_folder # os.path.join(output_folder, "Metadata")
 
@@ -1089,7 +1090,7 @@ def get_parameters(with_mat=True):
     parameters.mat_names = []
     if with_mat:
         parameters.mat_names = glob.glob(
-            os.path.join(data_path, "data_set_features-checked_fish", "data_set_features", "inter_bout_interval", "*.mat"))
+            os.path.join(data_path, "data_set_features", "new_bout_target", "inter_bout_interval", "*.mat"))
     logging.info("Mat names: {0}".format(parameters.mat_names))
     parameters.gaussian = args.gaussian
     parameters.fish = args.fish_name

@@ -210,12 +210,25 @@ def calc_paramecia_counts(dataset: FishAndEnvDataset, parameters: PlotsCMDParame
                             print(e)
 
                     # for all velocities! Metadata for frames
-                    fov_counters[key]['event_data']["features_frame_from_0"][
-                        ibi_str_name(velocities_frame_number)].append(starting_bout_indices[velocities_frame_number])
-                    fov_counters[key]['event_data']["bout_start_frame_from_0"][
-                        ibi_str_name(velocities_frame_number)].append(starting_bout_indices[velocities_frame_number])
-                    fov_counters[key]['event_data']["bout_end_frame_from_0"][
-                        ibi_str_name(velocities_frame_number)].append(ending_bout_indices[velocities_frame_number])
+                    if (len(starting_bout_indices) >= abs(velocities_frame_number) and velocities_frame_number < 0) or \
+                       (len(starting_bout_indices) > abs(velocities_frame_number) and velocities_frame_number >= 0):
+                        fov_counters[key]['event_data']["features_frame_from_0"][
+                            ibi_str_name(velocities_frame_number)].append(starting_bout_indices[velocities_frame_number])
+                        fov_counters[key]['event_data']["bout_start_frame_from_0"][
+                            ibi_str_name(velocities_frame_number)].append(starting_bout_indices[velocities_frame_number])
+                    else:
+                        fov_counters[key]['event_data']["features_frame_from_0"][
+                            ibi_str_name(velocities_frame_number)].append(np.nan)
+                        fov_counters[key]['event_data']["bout_start_frame_from_0"][
+                            ibi_str_name(velocities_frame_number)].append(np.nan)
+                        
+                    if (len(ending_bout_indices) >= abs(velocities_frame_number) and velocities_frame_number < 0) or \
+                       (len(ending_bout_indices) > abs(velocities_frame_number) and velocities_frame_number >= 0):
+                        fov_counters[key]['event_data']["bout_end_frame_from_0"][
+                            ibi_str_name(velocities_frame_number)].append(ending_bout_indices[velocities_frame_number])
+                    else:
+                        fov_counters[key]['event_data']["bout_end_frame_from_0"][
+                            ibi_str_name(velocities_frame_number)].append(np.nan)
 
                     to_l = lambda f, d: np.nan if len(d) == 0 or np.isnan(d).all() else f(d)
                     for _, d_key in enumerate([a for a in fov_counters[key].keys() if a not in ['event_data']]):
