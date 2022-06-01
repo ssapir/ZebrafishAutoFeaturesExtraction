@@ -352,8 +352,8 @@ class ParameciumRelativeToFish(Paramecium):
             if not (np.isnan([head_origin_x[prev_frame_ind], head_origin_y[prev_frame_ind]]).any()):
                 prev_fish_head = [head_origin_x[prev_frame_ind], head_origin_y[prev_frame_ind]]
                 prev_direction = head_direction_angle_list[prev_frame_ind]
-                logging.info("{0}: d head (pixels): {1}".format(event_name, distance.euclidean(prev_fish_head, head_origin_point)))
-                logging.info("{0}: d dir (deg): {1}".format(event_name, np.diff([prev_direction, head_direction_angle])))
+                #logging.info("{0}: d head (pixels): {1}".format(event_name, distance.euclidean(prev_fish_head, head_origin_point)))
+                #logging.info("{0}: d dir (deg): {1}".format(event_name, np.diff([prev_direction, head_direction_angle])))
 
             for para_ind in tqdm(range(n_paramecia), desc="paramecia number", disable=True):
                 point = self.center_points[frame_ind, para_ind, :]
@@ -408,6 +408,7 @@ class ParameciumRelativeToFish(Paramecium):
                 if not np.isnan([point, target_point]).any():
                     self._distance_from_target_in_mm[frame_ind, para_ind] = \
                         distance.euclidean(point, target_point) / one_mm_in_pixels
+        return True
 
     def calc_paramecia_env_features(self, head: Head, event_name: str):
         """For each fish,
@@ -658,7 +659,7 @@ class ExpandedEvent(Event):
 
         starting_bout_indices, ending_bout_indices = cls.start_end_bout_indices(event_to_copy)
         if len(starting_bout_indices) == 0 or len(ending_bout_indices) == 0:
-            logging.info("{1} event {0} is filtered due to empty start/end (skip paramecia): start {2} end {3}".format(
+            logging.error("{1} event {0} is filtered due to empty start/end (skip paramecia): start {2} end {3}".format(
                 event_to_copy.event_name, event_to_copy.outcome_str, starting_bout_indices, ending_bout_indices))
             return None, event_to_copy.event_name, "zero-start-or-end"
 
@@ -666,7 +667,7 @@ class ExpandedEvent(Event):
         is_data_good = paramecium.calc_ibi_velocity(event_to_copy.head, event_to_copy.event_name,
                                                     starting_bout_indices, ending_bout_indices)
         if not is_data_good:
-            logging.info("{1} event {0} is filtered due to bad velocity results".format(event_to_copy.event_name,
+            logging.error("{1} event {0} is filtered due to bad velocity results".format(event_to_copy.event_name,
                                                                                         event_to_copy.outcome_str))
             return None, event_to_copy.event_name, "bad-velocity"
 
@@ -679,13 +680,13 @@ class ExpandedEvent(Event):
                                                                                  event_name=event_to_copy.event_name)
 
         if np.isnan(paramecium.target_paramecia_index):
-            logging.info("{1} event {0} is filtered due to nan target".format(event_to_copy.event_name,
+            logging.error("{1} event {0} is filtered due to nan target".format(event_to_copy.event_name,
                                                                               event_to_copy.outcome_str))
             return None, event_to_copy.event_name, "nan-target"
 
         is_data_good = paramecium.calc_paramecia_vs_target_features(event_to_copy.event_name)
         if not is_data_good:
-            logging.info("{1} event {0} is filtered due to bad target vs para features results".format(event_to_copy.event_name,
+            logging.error("{1} event {0} is filtered due to bad target vs para features results".format(event_to_copy.event_name,
                                                                                              event_to_copy.outcome_str))
             return None, event_to_copy.event_name, "bad-features"
 

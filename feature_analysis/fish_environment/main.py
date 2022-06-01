@@ -110,7 +110,7 @@ if __name__ == '__main__':
     logging.info("Output folder {0}, input folder {1}".format(d2, data_path))
 
     #fullfile_path = os.path.join(output_folder, "data_set_features")
-    fullfile_path = os.path.join(d2, "data_set_features", "lilach")
+    fullfile_path = os.path.join(d2, "data_set_features", "new_bout_target")
     processed_path = os.path.join(fullfile_path, "all_fish")
     ibi_processed_path = os.path.join(fullfile_path, "inter_bout_interval")
     create_dirs_if_missing([fullfile_path, processed_path, ibi_processed_path])
