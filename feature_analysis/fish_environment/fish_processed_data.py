@@ -615,7 +615,14 @@ class ExpandedEvent(Event):
                 event.event_name, starting_indices, len(starting_indices), ending_indices, len(ending_indices),
                 event.event_frame_ind, event.outcome_str))
 
-        return starting_indices, ending_indices
+        # validate
+        err_code = None
+        if len(starting_indices) == 0:
+            err_code = "zero-start"
+        elif len(ending_indices) == 0:
+            err_code = "zero-end"
+
+        return starting_indices, ending_indices, err_code
 
     @staticmethod
     def inter_bout_interval_range(event: Event):
@@ -624,7 +631,7 @@ class ExpandedEvent(Event):
         starting_bout_indices, ending_bout_indices = \
             to_list(event.starting_bout_indices), to_list(event.ending_bout_indices)
         if len(starting_bout_indices) == 0 or len(ending_bout_indices) == 0:
-            starting_bout_indices, ending_bout_indices = ExpandedEvent.start_end_bout_indices(event)
+            starting_bout_indices, ending_bout_indices, err_code = ExpandedEvent.start_end_bout_indices(event)
         if len(starting_bout_indices) == 0 or len(ending_bout_indices) == 0:  # this is an error in start_end_bout_indices
             return []
 
@@ -659,11 +666,11 @@ class ExpandedEvent(Event):
                                                                                              event_to_copy.outcome_str))
             return None, event_to_copy.event_name, "bad-features"
 
-        starting_bout_indices, ending_bout_indices = cls.start_end_bout_indices(event_to_copy)
-        if len(starting_bout_indices) == 0 or len(ending_bout_indices) == 0:
-            logging.error("{1} event {0} is filtered due to empty start/end (skip paramecia): start {2} end {3}".format(
-                event_to_copy.event_name, event_to_copy.outcome_str, starting_bout_indices, ending_bout_indices))
-            return None, event_to_copy.event_name, "zero-start-or-end"
+        starting_bout_indices, ending_bout_indices, err_code = cls.start_end_bout_indices(event_to_copy)
+        if err_code is not None:
+            logging.error("{1} event {0} is filtered due to {4} (skip paramecia): start {2} end {3}".format(
+                event_to_copy.event_name, event_to_copy.outcome_str, starting_bout_indices, ending_bout_indices, err_code))
+            return None, event_to_copy.event_name, err_code
 
         frame_indices = cls.get_frame_indices(starting_bout_indices, ending_bout_indices)
         is_data_good = paramecium.calc_ibi_velocity(event_to_copy.head, event_to_copy.event_name,
@@ -744,8 +751,9 @@ class ExpandedEvent(Event):
                     value = value[frame_indices]
                     setattr(class_instance, attrib, value)
 
-        starting_bout_indices, ending_bout_indices = self.start_end_bout_indices(self)  # pass self to static method
-        if len(starting_bout_indices) == 0 or len(ending_bout_indices) == 0:
+        starting_bout_indices, ending_bout_indices, err_code = self.start_end_bout_indices(self)  # pass self to static method
+        if err_code is not None:
+            logging.error(f"Got error in start_end_bout: {err_code}")
             return
 
         n_frames = self.fish_tracking_status_list.shape[0]
@@ -816,7 +824,7 @@ def get_target_paramecia_index(event: ExpandedEvent):
     :param event:
     :return:
     """
-    starting, ending = ExpandedEvent.start_end_bout_indices(event)
+    starting, ending, err_code = ExpandedEvent.start_end_bout_indices(event)
     return get_target_paramecia_index_expanded(starting=starting, ending=ending, event_frame_ind=event.event_frame_ind,
                                                para=event.paramecium, head=event.head,
                                                outcome_str=event.outcome_str, event_name=event.event_name)

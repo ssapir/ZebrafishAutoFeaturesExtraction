@@ -145,7 +145,7 @@ def calc_paramecia_counts(dataset: FishAndEnvDataset, parameters: PlotsCMDParame
             if event.is_inter_bout_interval_only:  # already IBI
                 starting_bout_indices, ending_bout_indices = event.starting_bout_indices, event.ending_bout_indices
             else:
-                starting_bout_indices, ending_bout_indices = ExpandedEvent.start_end_bout_indices(event)  # calc
+                starting_bout_indices, ending_bout_indices, err_code = ExpandedEvent.start_end_bout_indices(event)  # calc
 
             # Validate
             if len(starting_bout_indices) == 0 or len(event.paramecium.status_points) == 0:
@@ -373,7 +373,7 @@ def calc_heat_maps(dataset: FishAndEnvDataset, parameters: PlotsCMDParameters, a
             if event.is_inter_bout_interval_only:  # already IBI
                 starting_bout_indices, ending_bout_indices = event.starting_bout_indices, event.ending_bout_indices
             else:
-                starting_bout_indices, ending_bout_indices = ExpandedEvent.start_end_bout_indices(event)  # calc
+                starting_bout_indices, ending_bout_indices, err_code = ExpandedEvent.start_end_bout_indices(event)  # calc
 
             # Validate
             if len(starting_bout_indices) == 0:
