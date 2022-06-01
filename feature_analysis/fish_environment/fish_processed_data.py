@@ -602,7 +602,8 @@ class ExpandedEvent(Event):
         if len(ending_indices) == 0:  # bout end is event frame ind
             ending_indices = to_list(event.event_frame_ind)
         if len(ending_indices) == len(starting_indices):
-            if np.array([(s - e) > 0 for (s, e) in zip(starting_indices[1:], ending_indices[:-1])]).all():
+            is_ibi_ok = np.array([(s - e) > 0 for (s, e) in zip(starting_indices[1:], ending_indices[:-1])])
+            if is_ibi_ok.all() and len(is_ibi_ok) > 0 and len(starting_indices) > 1:  # We get all()=True when len=0
                 ending_indices = ending_indices[:-1]
         elif len(ending_indices) == len(starting_indices) + 1:
             if np.array([(s - e) > 0 for (s, e) in zip(starting_indices, ending_indices[:-1])]).all():
