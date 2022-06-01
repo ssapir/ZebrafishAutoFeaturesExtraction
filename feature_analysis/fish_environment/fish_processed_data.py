@@ -549,7 +549,7 @@ class ExpandedEvent(Event):
         """
         def calc_start_end(is_bouts_):
             to_list = lambda x: x if isinstance(x, (list, np.ndarray)) else np.array([x])
-            diffs = np.diff(np.asarray(np.append(is_bouts_, is_bouts_[-1]), dtype=int))  # -1 is end. 1 is start
+            diffs = np.diff(np.asarray(np.append(is_bouts_[0], is_bouts_), dtype=int))  # -1 is end. 1 is start
             starting_indices = to_list(np.where(diffs == 1)[0])
             ending_indices = to_list(np.where(diffs == -1)[0])
             return starting_indices, ending_indices
@@ -610,18 +610,19 @@ class ExpandedEvent(Event):
                 starting_indices = np.concatenate([[0], starting_indices])
 
         # make sure IBIs are identified as expected (without length, but all is correct for IBI count)
-        if not (len(ending_indices) + 1 == len(starting_indices) and ((starting_indices[1:]-ending_indices) > 0).all()) \
-           and not (len(ending_indices) == len(starting_indices) and ((starting_indices[1:]-ending_indices[-1]) > 0).all()):
-            logging.error("start_end_bout_indices- Fish {6} event {0} has wrong IBIs: start (#{2}) {1} end (#{4}) {3} (last frame {5})".format(
-                event.event_name, starting_indices, len(starting_indices), ending_indices, len(ending_indices),
-                event.event_frame_ind, event.outcome_str))
-
-        # validate
         err_code = None
         if len(starting_indices) == 0:
             err_code = "zero-start"
         elif len(ending_indices) == 0:
             err_code = "zero-end"
+        elif len(ending_indices) > 1 and len(starting_indices) > 1:
+            for validate_diff in [0, 4]:
+                if not (len(ending_indices) + 1 == len(starting_indices) and ((starting_indices[1:]-ending_indices) > validate_diff).all()) \
+                   and not (len(ending_indices) == len(starting_indices) and ((starting_indices[1:]-ending_indices[:-1]) > validate_diff).all()):
+                    logging.error("start_end_bout_indices- Fish {6} event {0} has wrong IBIs: start (#{2}) {1} end (#{4}) {3} (last frame {5})".format(
+                        event.event_name, starting_indices, len(starting_indices), ending_indices, len(ending_indices),
+                        event.event_frame_ind, event.outcome_str))
+                    err_code = "bad-ibi-len-below-" + str(validate_diff)
 
         return starting_indices, ending_indices, err_code
 
