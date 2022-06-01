@@ -62,16 +62,22 @@ def annotate_single_frame_exp(frame: np.ndarray, fish_output: FishOutput,
             for j, curr_distance in enumerate(distances_to_fov):
                 endy = origin[1] + curr_distance * one_mm_in_pixels * math.sin(math.radians(angle))
                 endx = origin[0] + curr_distance * one_mm_in_pixels * math.cos(math.radians(angle))
-                cv2.putText(an_frame, "{0}".format(curr_distance),
-                            cls.point_to_int([endx + 1, endy + 1]), text_font, font_size(4), Colors.RED, 1)
+                if not np.isnan([endx, endy]).any():
+                    cv2.putText(an_frame, "{0}".format(curr_distance),
+                                cls.point_to_int([endx + 1, endy + 1]), text_font, font_size(4), Colors.RED, 1)
+                else:
+                    logging.error("NaN endx={0} or endy={1} for d={2} a={3} o={4}".format(endx, endy, curr_distance, angle, origin))
             length = (max(distances_to_fov) + 0.5) * one_mm_in_pixels
             endy = origin[1] + length * math.sin(math.radians(angle))
             endx = origin[0] + length * math.cos(math.radians(angle))
             to_p =[endx, endy]
-            cv2.line(an_frame, cls.point_to_int(origin), cls.point_to_int(to_p), Colors.RED, 1)
-            cv2.putText(an_frame, "{0}".format(name[:4]),
-                        cls.point_to_int([to_p[0] + 2 * a, to_p[1] + 2 * a]), text_font, font_size(3),
-                        name_colors[names.index(name)], 1)
+            if not np.isnan(to_p).any():
+                cv2.line(an_frame, cls.point_to_int(origin), cls.point_to_int(to_p), Colors.RED, 1)
+                cv2.putText(an_frame, "{0}".format(name[:4]),
+                            cls.point_to_int([to_p[0] + 2 * a, to_p[1] + 2 * a]), text_font, font_size(3),
+                            name_colors[names.index(name)], 1)
+            else:
+                logging.error("NaN 2 endx={0} or endy={1} for L={2} a={3} o={4}".format(endx, endy, length, angle, origin))
 
     _, n_paramecia = paramecium_exp.status_points.shape
     for para_ind in range(n_paramecia):
@@ -262,14 +268,14 @@ if __name__ == '__main__':
         dataset = FishAndEnvDataset.import_from_matlab(fullfile)
     else:
         #processed_path = os.path.join(os.path.join(d2, "dataset_features-checked_fish", "data_set_features"), "all_fish")
-        processed_path = os.path.join(os.path.join(d2, "data_set_features", "test_target"), "all_fish")
+        processed_path = os.path.join(os.path.join(d2, "data_set_features", "new_bout_target"), "all_fish")
         output_path = os.path.join(processed_path, parameters.fish_name + "_env_processed.mat")
         # 20200720 - f2_env_processed_small_hunt_abort
         dataset = FishAndEnvDataset([SingleFishAndEnvData.import_from_matlab(output_path)])
     print("Loaded ", vid_names)
 
     #video_output_folder = os.path.join(data_path, "dataset_debug_movies")
-    video_output_folder = os.path.join(d2, "dataset_debug_movies_test_target")
+    video_output_folder = os.path.join(d2, "dataset_debug_movies_" + "new_bout_target")
     create_dirs_if_missing([video_output_folder])
 
     video_data = {}
