@@ -48,7 +48,7 @@ def calc_paramecia_counts(dataset: FishAndEnvDataset, parameters: PlotsCMDParame
                  [1.75, 1.875], [2, 2.125], [2.25, 2.375], [2.5, 2.625], [2.75, 2.875], [3, 3.125]]
     else:  # 1/4
         add_d = [[0, 0.375], [0.5, 0.875], [1, 1.375], [1.5, 1.875], [2, 2.375], [2.5, 2.875]]
-    distance_pairs = [[0, 1.5], [1.5, 3], [0, 3], [1.5, 3.5], [1.5, 4],
+    distance_pairs = [[0, 1.5], [1.5, 3], [0, 3], [0, 3.5], [0, 4], [1.5, 3.5], [1.5, 4],
                       [0, 1], [1, 2], [2, 3], [3, 4], [4, 5], [5, 6], [6, 7], [7, 8], [8, 9]] + add_d
     for from_v, to_v in distance_pairs:
         m["{0}-{1}mm".format(from_v, to_v)] = ["d_{0}_mm".format(a).replace(".", "_dot_")
