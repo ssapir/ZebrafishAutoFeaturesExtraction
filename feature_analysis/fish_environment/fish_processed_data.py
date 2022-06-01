@@ -513,7 +513,8 @@ class ParameciumRelativeToFish(Paramecium):
 
 class ExpandedEvent(Event):
     def __init__(self, event_to_copy: Event, paramecium: ParameciumRelativeToFish,
-                 starting_bout_indices=[], ending_bout_indices=[], frame_indices=[], is_inter_bout_interval_only=False):
+                 starting_bout_indices=[], ending_bout_indices=[], frame_indices=[],
+                 is_inter_bout_interval_only=False, is_bout_list_overridden=False):
         expected_keys = get_function_arg_names(Event.__init__)
         expected_keys = [(key, [k for k in event_to_copy.__dict__.keys() if k.endswith(key)][0])
                          for key in expected_keys if "paramecium" not in key]
@@ -528,6 +529,7 @@ class ExpandedEvent(Event):
         self.ending_bout_indices = get_validated_list(ending_bout_indices, inner_type=(int, np.int32, np.int64), add=add)
         self.frame_indices = get_validated_list(frame_indices, inner_type=(int, np.int32, np.int64), add=add)
         self.is_inter_bout_interval_only = is_inter_bout_interval_only
+        self.is_bout_list_overridden = is_bout_list_overridden
 
     @staticmethod
     def calc_velocity_norm(x, y):
@@ -647,7 +649,7 @@ class ExpandedEvent(Event):
                                                                            event_to_copy.outcome_str))
             return None, event_to_copy.event_name, "outcome-{0}".format(event_to_copy.outcome_str)
 
-        event_to_copy.tail.is_bout_frame_list, event_to_copy.tail.is_bout_list_overridden = \
+        event_to_copy.tail.is_bout_frame_list, is_bout_list_overridden = \
             ExpandedEvent.fix_is_bout_detection(event_to_copy.tail, event_to_copy.event_name)
 
         paramecium = ParameciumRelativeToFish(event_to_copy.paramecium)
@@ -691,7 +693,8 @@ class ExpandedEvent(Event):
             return None, event_to_copy.event_name, "bad-features"
 
         result = cls(event_to_copy, paramecium, is_inter_bout_interval_only=False, frame_indices=frame_indices,
-                     starting_bout_indices=starting_bout_indices, ending_bout_indices=ending_bout_indices)
+                     starting_bout_indices=starting_bout_indices, ending_bout_indices=ending_bout_indices,
+                     is_bout_list_overridden=is_bout_list_overridden)
 
         expected_keys = get_function_arg_names(result.set_metadata)
         result.set_metadata(**dict([(k, event_to_copy.__dict__[k]) for k in expected_keys]))
@@ -699,7 +702,8 @@ class ExpandedEvent(Event):
 
     def export_to_struct(self):
         result = super().export_to_struct()
-        for attrib in ["starting_bout_indices", "ending_bout_indices", "is_inter_bout_interval_only", "frame_indices"]:
+        for attrib in ["starting_bout_indices", "ending_bout_indices", "is_inter_bout_interval_only",
+                       "frame_indices", "is_bout_list_overridden"]:
             if hasattr(self, attrib):
                 result[attrib] = getattr(self, attrib)
         return result
@@ -709,13 +713,14 @@ class ExpandedEvent(Event):
         event = Event.import_from_struct(data)
         paramecium = ParameciumRelativeToFish.import_from_struct(data['paramecium'])
         if all(_ in data.keys() for _ in
-               ["starting_bout_indices", "ending_bout_indices", "is_inter_bout_interval_only"]):
+               ["starting_bout_indices", "ending_bout_indices", "is_inter_bout_interval_only", "is_bout_list_overridden"]):
             result = cls(event, paramecium,
                          starting_bout_indices=data["starting_bout_indices"],
                          ending_bout_indices=data["ending_bout_indices"],
                          frame_indices=data.get("frame_indices", cls.get_frame_indices(data["starting_bout_indices"],
                                                                                        data["ending_bout_indices"])),
-                         is_inter_bout_interval_only=data["is_inter_bout_interval_only"])
+                         is_inter_bout_interval_only=data["is_inter_bout_interval_only"],
+                         is_bout_list_overridden=data.get("is_bout_list_overridden", False))
         else:
             result = cls(event, paramecium, is_inter_bout_interval_only=False)
         return result
