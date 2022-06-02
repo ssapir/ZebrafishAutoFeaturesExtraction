@@ -15,6 +15,8 @@ from tqdm import tqdm
 import pandas as pd
 import traceback
 import warnings
+from scipy import stats
+import scipy
 
 FIG_SIZE = (8, 6)  # 6 height
 
@@ -64,6 +66,69 @@ def heatmap_plot(f, np_map, name, title, plot_dir, max_val=None, ax: plt.Axes = 
         ax.set_ylim(np_map.shape[0] // 4 + np_map.shape[0] // 8, np_map.shape[1] // 8 + np_map.shape[1] // 2)
     # ax.get_xaxis().set_visible(False)
     # ax.get_yaxis().set_visible(False)
+
+
+def barplot_annotate_brackets(num1, num2, data, center, height, yerr=None, dh=.05, barh=.05, fs=None, maxasterix=None,
+                              ax=None, color='k', index_append_up=1):
+    """
+    Annotate barplot with p-values.
+
+    :param num1: number of left bar to put bracket over
+    :param num2: number of right bar to put bracket over
+    :param data: string to write or number for generating asterixes
+    :param center: centers of all bars (like plt.bar() input)
+    :param height: heights of all bars (like plt.bar() input)
+    :param yerr: yerrs of all bars (like plt.bar() input)
+    :param dh: height offset over bar / bar + yerr in axes coordinates (0 to 1)
+    :param barh: bar height in axes coordinates (0 to 1)
+    :param fs: font size
+    :param maxasterix: maximum number of asterixes to write (for very small p-values)
+    """
+
+    if type(data) is str:
+        text = data
+    else:
+        # * is p < 0.05, ** is p < 0.005, *** is p < 0.0005, etc.
+        text = ''
+        p = .05
+
+        while data < p:
+            text += '*'
+            p /= 10.
+            if maxasterix and len(text) == maxasterix:
+                break
+        if len(text) == 0:
+            text = 'n. s.'
+
+    lx, ly = center[num1], height[num1]
+    rx, ry = center[num2], height[num2]
+
+    if yerr:
+        ly += yerr[num1]
+        ry += yerr[num2]
+
+    if ax is None:
+        ax = plt.gca()
+    ax_y0, ax_y1 = ax.get_ylim()
+    dh *= (ax_y1 - ax_y0)
+    barh *= (ax_y1 - ax_y0)
+
+    y = max(ly, ry) + dh * index_append_up
+
+    barx = [lx, lx, rx, rx]
+    bary = [y, y + barh, y + barh, y]
+    mid = ((lx + rx) / 2, y + barh)
+
+    ax.plot(barx, bary, c=color, label='_nolegend_')  # todo add legend?
+
+    kwargs = dict(ha='center', va='bottom', color=color)
+    if fs is not None:
+        kwargs['fontsize'] = fs
+
+    ax.text(*mid, text, **kwargs, label='_nolegend_')
+
+    _, ax_y11 = ax.get_ylim()
+    ax.set_ylim([ax_y0, max(ax_y11, y + barh + dh * 10)])  # adjust to not have annotation outside
 
 
 def plot_scatter_bar(add_name, age_names, outcome_names, counters, key, y_label, curr_title, filename, dpi,
@@ -419,9 +484,9 @@ def plot_densities(general_filename, plot_dir, per_age_statistics, title_add, wh
                                 pd.DataFrame.from_dict({what: age_2_s, x_label: f(y2), y_label: f(y22)})])
 
                 if is_joint:
-                    sns.kdeplot(x=f(y1), y=f(y12), label=age_1_s, color=colormap(normalize(p1), age_1_s, outcome),
+                    sns.kdeplot(x=f(y1), y=f(y12), label=age_1_s, color=colormap(age_1_s, outcome),
                                 thresh=.2, ax=ax)
-                    sns.kdeplot(x=f(y2), y=f(y22), label=age_2_s, color=colormap(normalize(p2), age_2_s, outcome),
+                    sns.kdeplot(x=f(y2), y=f(y22), label=age_2_s, color=colormap(age_2_s, outcome),
                                 thresh=.2, ax=ax)
                     # sns.kdeplot(data=df, x=x_label, y=y_label,hue=what,
                     #             fill=True, common_norm=False, alpha=.5, linewidth=0,# label=age_1_s,
@@ -432,8 +497,8 @@ def plot_densities(general_filename, plot_dir, per_age_statistics, title_add, wh
                     #                         palette=[colormap(normalize(p1)), colormap(normalize(p2))], legend=leg)
                 else:
                     sns.scatterplot(data=df, x=x_label, y=y_label, hue=what, style=what, ax=ax,
-                                    palette=[colormap(normalize(p1), age_1_s, outcome),
-                                             colormap(normalize(p2), age_2_s, outcome)], legend=leg)
+                                    palette=[colormap(age_1_s, outcome),
+                                             colormap(age_2_s, outcome)], legend=leg)
             else:
                 # is_legend_outside = False  # cumulative
                 yy_label = "Mean " + y_label

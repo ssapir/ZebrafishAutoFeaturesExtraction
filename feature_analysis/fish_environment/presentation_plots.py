@@ -164,19 +164,20 @@ def paramecia_event_data_dict(is_per_fish=False, key='all', key_2nd=None, f=lamb
 
 
 def paramecia_distanecs_data_dict(distances_map, key='all', key_2nd=None, f=lambda x, d, a: x, quickfix=lambda x: x,
-                                  data=None, is_fish_mean=False, distance_f=distance_name_to_value):
-    def get_add_values(values_dict, distance_value):  # inner_inner_inner_values
+                                  data=None, is_fish_mean=False, is_1st_key_event=False, is_2nd_key_event=False,
+                                  distance_f=distance_name_to_value):
+    def get_add_values(values_dict, events_dict, distance_value):  # inner_inner_inner_values
         add, add_2nd = [], []
         pad = lambda v1, v2: copy.deepcopy(v1) if (max(len(v1), len(v2)) - len(v1)) == 0 \
             else np.pad(copy.deepcopy(v1), pad_width=(max(len(v1), len(v2)) - len(v1), 0),
                         mode='constant', constant_values=np.nan)
-
-        if values_dict[key] == {}:
-            add = quickfix(to_list([]))
-        else:
-            add = quickfix(to_list(get_y(values_dict, k=key)))
+        data_dict_key1 = values_dict if not is_1st_key_event else events_dict
+        data_dict_key2 = values_dict if not is_2nd_key_event else events_dict
+        add = quickfix(to_list([])) if data_dict_key1[key] == {} else quickfix(to_list(get_y(data_dict_key1, k=key)))
         if key_2nd is not None:
-            add_2nd = quickfix(to_list(values_dict[key_2nd]))
+            add_2nd = quickfix(to_list([])) if data_dict_key2[key_2nd] == {} else \
+                quickfix(to_list(get_y(data_dict_key2, k=key_2nd)))
+            # add_2nd = quickfix(to_list(values_dict[key_2nd]))
             add = pad(add, add_2nd)
             add_2nd = pad(add_2nd, add)
         x_add = [np.nan] * len(add)
@@ -184,7 +185,17 @@ def paramecia_distanecs_data_dict(distances_map, key='all', key_2nd=None, f=lamb
             x_add = to_list(distance_value) * len(add)
 
         return x_add, add, add_2nd
-
+    def validate_keys():
+        if angle_type not in per_age_statistics.keys():
+            per_age_statistics[angle_type] = {}
+        if outcome not in per_age_statistics[angle_type].keys():
+            per_age_statistics[angle_type][outcome] = {}
+        if age_name not in per_age_statistics[angle_type][outcome].keys():
+            per_age_statistics[angle_type][outcome][age_name] = {}
+        if distance_key not in per_age_statistics[angle_type][outcome][age_name].keys():
+            per_age_statistics[angle_type][outcome][age_name][distance_key] = {'x': [], 'y': []}
+            if key_2nd is not None:
+                per_age_statistics[angle_type][outcome][age_name][distance_key]['y2'] = []
     per_age_statistics = {}
 
     if data is None:
@@ -193,10 +204,17 @@ def paramecia_distanecs_data_dict(distances_map, key='all', key_2nd=None, f=lamb
         else:
             data = paramecia_in_fov
 
+    if is_1st_key_event and is_2nd_key_event:
+        logging.error("Bad usage. One key should be FOV (use different function for events only keys)")
+        return {}
+
     for age_ind, (age_name, values) in enumerate(data.items()):
         if age_name.startswith("__"):
             continue
         for outcome, inner_values in values.items():
+            inner_event_values = inner_values.get('event_data', {})
+            if inner_event_values == {}:
+                logging.error("Missing event data in {0} {1}".format(age_name, outcome))
             for distance_key, only_distances in distances_map.items():
                 for i, (distance_mm, inner_inner_values) in enumerate(inner_values.items()):
                     if only_distances != [] and distance_mm.replace("_dot_", ".") not in only_distances:
@@ -205,18 +223,9 @@ def paramecia_distanecs_data_dict(distances_map, key='all', key_2nd=None, f=lamb
                     distance_value = float(distance_value) if distance_value.replace('.', '', 1).isdigit() else None
 
                     for j, (angle_type, inner_inner_inner_values) in enumerate(inner_inner_values.items()):
-                        if angle_type not in per_age_statistics.keys():
-                            per_age_statistics[angle_type] = {}
-                        if outcome not in per_age_statistics[angle_type].keys():
-                            per_age_statistics[angle_type][outcome] = {}
-                        if age_name not in per_age_statistics[angle_type][outcome].keys():
-                            per_age_statistics[angle_type][outcome][age_name] = {}
-                        if distance_key not in per_age_statistics[angle_type][outcome][age_name].keys():
-                            per_age_statistics[angle_type][outcome][age_name][distance_key] = {'x': [], 'y': []}
-                            if key_2nd is not None:
-                                per_age_statistics[angle_type][outcome][age_name][distance_key]['y2'] = []
 
-                        x_add, add, add_2nd = get_add_values(inner_inner_inner_values, distance_value)
+                        validate_keys()
+                        x_add, add, add_2nd = get_add_values(inner_inner_inner_values, inner_event_values, distance_value)
                         per_age_statistics[angle_type][outcome][age_name][distance_key]['x'].extend(x_add)
                         per_age_statistics[angle_type][outcome][age_name][distance_key]['y'].extend(
                             f(add, distance_mm, angle_type))
@@ -484,6 +493,63 @@ def plot_event_property(general_filename, plot_dir, x_label, y_label, key, key_2
                                       colormap=get_color))
 
     return plots
+
+
+def plot_paramecia_property_rel(general_filename, plot_dir, x_label, y_label, key, key_2nd, title_add="", is_fish_mean=False,
+                                is_1st_key_event=False, is_2nd_key_event=True, is_per_angle=True, outcomes_list=[], outcome_map={}, age_map={}, age_list=[], split_also=False):
+    density_args = {'y_label': y_label, 'x_label': x_label, 'dpi': dpi, 'is_legend_outside': True,
+                    'all_together': False,
+                    'fig_size': FIG_SIZE, 'colormap': get_color,
+                    'is_outer_keys_subplots': False,
+                    'palette': default_colors}
+
+    plots = []
+
+    m = {'0-1.5mm': ['a_0_1.5mm'],
+         '1.5-3.5mm': ['a_1.5_3.5mm'],
+         '0-3.5mm': ['a_0_3.5mm'],
+         '0-4mm': ['a_0_4mm']}
+
+    # add figures with inner comparison of distances
+    per_age_distance_statistics = paramecia_distanecs_data_dict(m, key=key, key_2nd=key_2nd, is_fish_mean=is_fish_mean,
+                                                                is_1st_key_event=is_1st_key_event,
+                                                                is_2nd_key_event=is_2nd_key_event)
+    get_color_adapted = lambda dist, age: get_color(age, outcome)
+    density_adapted = density_args.copy()
+    density_adapted['colormap'] = get_color_adapted
+    for angle_type in per_age_distance_statistics.keys():
+        for outcome in per_age_distance_statistics[angle_type].keys():
+            curr_name = general_filename + "_" + angle_type.replace("-", "_") + "_" + outcome.replace("-", "_")
+            outer_keys_map = age_map
+            inner_keys_map = {}
+            outer_keys_list = age_list
+            inner_keys_list = list(m.keys())
+            what = "age"  # "age" if not is_flip else "outcome"
+            density_args['is_legend_outside'] = False
+            density_args['is_outer_keys_subplots'] = True
+            try:
+                plots.extend(plot_densities(n, plot_dir, per_age_distance_statistics[angle_type][outcome],
+                                            is_kde=False, is_hist=False, is_box=False,
+                                            is_rel=True, is_joint=False,
+                                            outer_keys_list=outer_keys_list, inner_keys_list=inner_keys_list,
+                                            outer_keys_map=outer_keys_map, inner_keys_map=inner_keys_map,
+                                            what=what, #f=lambda x: np.abs(x),
+                                            title_add=title_add, add_name=add_name, **density_args))  # density_adapted
+            except:
+                pass
+            density_args['is_outer_keys_subplots'] = False
+            try:
+                plots.extend(plot_densities(n, plot_dir, per_age_distance_statistics[angle_type][outcome],
+                                            is_kde=False, is_hist=False, is_box=False,
+                                            is_rel=True, is_joint=True,
+                                            outer_keys_list=outer_keys_list, inner_keys_list=inner_keys_list,
+                                            outer_keys_map=outer_keys_map, inner_keys_map=inner_keys_map,
+                                            what=what, #f=lambda x: np.abs(x),
+                                            title_add=title_add, add_name=add_name, **density_args))
+            except Exception as e:
+                print(e)
+            density_args['is_legend_outside'] = True
+            density_args['is_outer_keys_subplots'] = True
 
 
 def plot_paramecia_property(general_filename, plot_dir, x_label, y_label, key, key_2nd=None, title_add="", is_fish_mean=False,
@@ -1030,12 +1096,26 @@ if __name__ == '__main__':
     ibi_folder = os.path.join(output_folder, "ibi_dur")
     visual_folder = os.path.join(output_folder, "VisualLoad")
     velocities_folder = os.path.join(output_folder, "Velocities")
+    relation_folder = os.path.join(output_folder, "Relations")
     create_dirs_if_missing([n_paramecia, heatmap_folder, metadata, ibi_folder])
-    create_dirs_if_missing([visual_folder, velocities_folder])
+    create_dirs_if_missing([visual_folder, velocities_folder, relation_folder])
 
     outcomes_list, outcome_map, age_list, age_map, default_colors = get_maps_for_plots(parameters=parameters)
 
     plot_metadata(parameters)
+
+    rec = lambda d: list([v for k, v in d.items() if k != 'event_data'])[0]
+    all_keys = rec(rec(rec(rec(paramecia_mean_per_fish_in_fov)))).keys()
+    all_event_keys = rec(rec(paramecia_mean_per_fish_in_fov))['event_data'].keys()
+    key = [k for k in all_keys if "n_paramecia" in k][0]
+    key_2nd = [k for k in all_event_keys if "event_ibi_dur_sec_last" in k][0]
+    split_also = False
+    for is_fish_mean in [False, True]:
+        n = key + "_ibi_dur_" + ("_per_fish" if is_fish_mean else "")
+        plot_paramecia_property_rel(general_filename=n, plot_dir=relation_folder, y_label=fix_name(key_2nd),
+                                    outcomes_list=outcomes_list, outcome_map=outcome_map, age_map=age_map,
+                                    is_fish_mean=is_fish_mean, split_also=split_also, is_1st_key_event=False, is_2nd_key_event=True,
+                                    age_list=age_list, x_label=fix_name(key), key=key, key_2nd=key_2nd)
 
     for is_fish_mean in [False, True]:
         plot_all_paramecia_properties(visual_folder, outcomes_list=outcomes_list, outcome_map=outcome_map,
