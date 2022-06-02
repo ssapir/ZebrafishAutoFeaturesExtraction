@@ -656,7 +656,7 @@ class ExpandedEvent(Event):
         if "no-target" in event_to_copy.outcome_str or event_to_copy.outcome_str == "":
             logging.info("Event {0} is filtered due to outcome {1}".format(event_to_copy.event_name,
                                                                            event_to_copy.outcome_str))
-            return None, event_to_copy.event_name, "outcome-{0}".format(event_to_copy.outcome_str)
+            return None, event_to_copy.event_name, "outcome-{0}".format(event_to_copy.outcome_str.replace(",", "-"))
 
         event_to_copy.tail.is_bout_frame_list, is_bout_list_overridden = \
             ExpandedEvent.fix_is_bout_detection(event_to_copy.tail, event_to_copy.event_name)
