@@ -615,6 +615,8 @@ class ExpandedEvent(Event):
             err_code = "zero-start"
         elif len(ending_indices) == 0:
             err_code = "zero-end"
+        elif len(ending_indices) == 1 and len(starting_indices) == 1 and (ending_indices - starting_indices > 0).all():
+            err_code = "lack-IBI-1-bout-only"
         elif len(ending_indices) > 1 and len(starting_indices) > 1:
             validate_diff = 0  # IBI
             if not (len(ending_indices) + 1 == len(starting_indices) and ((starting_indices[1:]-ending_indices) > validate_diff).all()) \
