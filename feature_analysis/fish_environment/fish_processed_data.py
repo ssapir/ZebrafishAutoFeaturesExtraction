@@ -616,13 +616,20 @@ class ExpandedEvent(Event):
         elif len(ending_indices) == 0:
             err_code = "zero-end"
         elif len(ending_indices) > 1 and len(starting_indices) > 1:
-            for validate_diff in [0, 4]:
-                if not (len(ending_indices) + 1 == len(starting_indices) and ((starting_indices[1:]-ending_indices) > validate_diff).all()) \
-                   and not (len(ending_indices) == len(starting_indices) and ((starting_indices[1:]-ending_indices[:-1]) > validate_diff).all()):
-                    logging.error("start_end_bout_indices- Fish {6} event {0} has wrong IBIs: start (#{2}) {1} end (#{4}) {3} (last frame {5})".format(
-                        event.event_name, starting_indices, len(starting_indices), ending_indices, len(ending_indices),
-                        event.event_frame_ind, event.outcome_str))
-                    err_code = "bad-ibi-len-below-" + str(validate_diff)
+            validate_diff = 0  # IBI
+            if not (len(ending_indices) + 1 == len(starting_indices) and ((starting_indices[1:]-ending_indices) > validate_diff).all()) \
+               and not (len(ending_indices) == len(starting_indices) and ((starting_indices[1:]-ending_indices[:-1]) > validate_diff).all()):
+                logging.error("start_end_bout_indices- Fish {6} event {0} has wrong IBIs: start (#{2}) {1} end (#{4}) {3} (last frame {5})".format(
+                    event.event_name, starting_indices, len(starting_indices), ending_indices, len(ending_indices),
+                    event.event_frame_ind, event.outcome_str))
+                err_code = "bad-ibi-len-below-" + str(validate_diff)
+            validate_diff = 5  # bout
+            if not (len(ending_indices) + 1 == len(starting_indices) and ((ending_indices - starting_indices[:-1]) >= validate_diff).all()) \
+               and not (len(ending_indices) == len(starting_indices) and ((ending_indices - starting_indices) >= validate_diff).all()):
+                logging.error("start_end_bout_indices- Fish {6} event {0} has wrong bout: start (#{2}) {1} end (#{4}) {3} (last frame {5})".format(
+                    event.event_name, starting_indices, len(starting_indices), ending_indices, len(ending_indices),
+                    event.event_frame_ind, event.outcome_str))
+                err_code = "bad-bout-len-below-" + str(validate_diff)
 
         return starting_indices, ending_indices, err_code
 
