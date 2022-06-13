@@ -165,6 +165,8 @@ def get_custom_class_members(class_instance):
 
 class ParameciumRelativeToFish(Paramecium):
     _distance_from_target_in_mm = []
+    _angle_deg_from_target = []
+    _diff_from_target_deg = []
     _distance_from_fish_in_mm = []
     _angle_deg_from_fish = []
     _diff_from_fish_angle_deg = []
@@ -177,6 +179,14 @@ class ParameciumRelativeToFish(Paramecium):
     @property
     def distance_from_target_in_mm(self):
         return self._distance_from_target_in_mm
+
+    @property
+    def angle_deg_from_target(self):
+        return self._angle_deg_from_target
+
+    @property
+    def diff_from_target_deg(self):
+        return self._diff_from_target_deg
 
     @property
     def distance_from_fish_in_mm(self):
@@ -227,8 +237,8 @@ class ParameciumRelativeToFish(Paramecium):
         return self._target_paramecia_index
 
     def __init__(self, paramecium_to_copy: Paramecium, distance_from_fish_in_mm=[], distance_from_target_in_mm=[],
-                 angle_deg_from_fish=[], diff_from_fish_angle_deg=[], edge_points=[], field_angle=[],
-                 field_of_view_status=[], ibi_length_in_secs=[], target_paramecia_ind=np.nan,
+                 diff_from_target_deg=[], angle_deg_from_target=[], angle_deg_from_fish=[], diff_from_fish_angle_deg=[],
+                 edge_points=[], field_angle=[], field_of_view_status=[], ibi_length_in_secs=[], target_paramecia_ind=np.nan,
                  velocity_norm=[], velocity_direction=[], velocity_towards_fish=[], velocity_orthogonal=[]):
         super().__init__(center=paramecium_to_copy.center_points, area=paramecium_to_copy.area_points,
                          status=paramecium_to_copy.status_points, color=paramecium_to_copy.color_points,
@@ -237,6 +247,8 @@ class ParameciumRelativeToFish(Paramecium):
                          ellipse_dirs=paramecium_to_copy.ellipse_dirs,
                          bounding_boxes=paramecium_to_copy.bounding_boxes)
         self._distance_from_target_in_mm = get_validated_list(distance_from_target_in_mm, float)
+        self._angle_deg_from_target = get_validated_list(angle_deg_from_target, float)
+        self._diff_from_target_deg = get_validated_list(diff_from_target_deg, float)
         self._distance_from_fish_in_mm = get_validated_list(distance_from_fish_in_mm, float)
         self._angle_deg_from_fish = get_validated_list(angle_deg_from_fish, float)
         self._diff_from_fish_angle_deg = get_validated_list(diff_from_fish_angle_deg, float)
@@ -253,6 +265,8 @@ class ParameciumRelativeToFish(Paramecium):
     def export_to_struct(self):  # this is an example of saving points only (centers) of one trajectory
         result = super().export_to_struct()
         result['distance_from_target_in_mm'] = np.array(self._distance_from_target_in_mm, dtype=np.float)
+        result['angle_deg_from_target'] = np.array(self._angle_deg_from_target, dtype=np.float)
+        result['diff_from_target_deg'] = np.array(self._diff_from_target_deg, dtype=np.float)
         result['distance_from_fish_in_mm'] = np.array(self._distance_from_fish_in_mm, dtype=np.float)
         result['angle_deg_from_fish'] = np.array(self._angle_deg_from_fish, dtype=np.float)
         result['diff_from_fish_angle_deg'] = np.array(self._diff_from_fish_angle_deg, dtype=np.float)
@@ -271,6 +285,8 @@ class ParameciumRelativeToFish(Paramecium):
     def import_from_struct(cls, data):  # match ctor
         return cls(Paramecium.import_from_struct(data),
                    distance_from_target_in_mm=data.get('distance_from_target_in_mm', []),
+                   angle_deg_from_target=data.get('angle_deg_from_target', []),
+                   diff_from_target_deg=data.get('diff_from_target_deg', []),
                    distance_from_fish_in_mm=data['distance_from_fish_in_mm'],
                    angle_deg_from_fish=data['angle_deg_from_fish'],
                    diff_from_fish_angle_deg=data['diff_from_fish_angle_deg'],
@@ -381,7 +397,7 @@ class ParameciumRelativeToFish(Paramecium):
                     self._ibi_length_in_secs[i, para_ind] = self.frames_to_secs_converter(ibi_frames)
         return True
 
-    def calc_paramecia_vs_target_features(self, event_name: str):
+    def calc_paramecia_vs_target_features(self, head: Head, event_name: str):
         """After target was detected, some features are relative to it (distractors vs target)
 
         :param event_name:
@@ -399,6 +415,8 @@ class ParameciumRelativeToFish(Paramecium):
             return False
 
         self._distance_from_target_in_mm = np.full((n_frames, n_paramecia), fill_value=np.nan)
+        self._angle_deg_from_target =  np.full((n_frames, n_paramecia), fill_value=np.nan)
+        self._diff_from_target_deg = np.full((n_frames, n_paramecia), fill_value=np.nan)
         one_mm_in_pixels, _ = pixels_mm_converters()
 
         for frame_ind in tqdm(range(n_frames), desc="frame number", disable=True):
@@ -408,6 +426,14 @@ class ParameciumRelativeToFish(Paramecium):
                 if not np.isnan([point, target_point]).any():
                     self._distance_from_target_in_mm[frame_ind, para_ind] = \
                         distance.euclidean(point, target_point) / one_mm_in_pixels
+                    direction_angle = get_angle_to_horizontal(target_point, point)  # fish point of view
+                    self._angle_deg_from_target[frame_ind, para_ind] = fix_angle_range(direction_angle)
+                    # todo between who? how the fish see both?
+                    # diff_angle = fix_angle_range(abs(direction_angle - head_direction_angle))
+                    # if diff_angle > 180:
+                    #     diff_angle = abs(360 - diff_angle)
+                    # self._diff_from_target_deg[frame_ind, para_ind] = diff_angle * np.sign(direction_angle - head_direction_angle)
+
         return True
 
     def calc_paramecia_env_features(self, head: Head, event_name: str):
@@ -731,7 +757,7 @@ class ExpandedEvent(Event):
                                                                               event_to_copy.outcome_str))
             return None, event_to_copy.event_name, "nan-target"
 
-        is_data_good = paramecium.calc_paramecia_vs_target_features(event_to_copy.event_name)
+        is_data_good = paramecium.calc_paramecia_vs_target_features(event_name=event_to_copy.event_name, head=event_to_copy.head)
         if not is_data_good:
             logging.error("{1} event {0} is filtered due to bad target vs para features results".format(event_to_copy.event_name,
                                                                                              event_to_copy.outcome_str))
