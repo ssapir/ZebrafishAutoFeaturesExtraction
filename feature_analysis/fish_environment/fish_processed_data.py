@@ -594,19 +594,39 @@ class ExpandedEvent(Event):
         :return:
         """
         to_list = lambda x: x if isinstance(x, (list, np.ndarray)) else np.array([x])
-        is_bouts = event.tail.is_bout_frame_list[:event.event_frame_ind]
-        diffs = np.diff(np.asarray(np.append(is_bouts[0], is_bouts), dtype=int))  # -1 is end. 1 is start
-        starting_indices = to_list(np.where(diffs == 1)[0])
-        ending_indices = to_list(np.where(diffs == -1)[0])
+        def calc_start_end(is_bout_list):
+            diffs_curr = np.diff(np.asarray(np.append(is_bout_list[0], is_bout_list), dtype=int))  # -1 is end. 1 is start
+            return to_list(np.where(diffs_curr == 1)[0]), to_list(np.where(diffs_curr == -1)[0])   # start, end
+
+        starting_indices, ending_indices = calc_start_end(event.tail.is_bout_frame_list[:event.event_frame_ind])
 
         if len(ending_indices) == 0:  # bout end is event frame ind
             ending_indices = to_list(event.event_frame_ind)
+        elif "abort" in event.outcome_str:  # match middle frame to bout
+            starting_indices_all, ending_indices_all = calc_start_end(event.tail.is_bout_frame_list)
+            if len(ending_indices_all) == len(starting_indices_all) or len(ending_indices_all) == len(starting_indices_all) + 1:
+                s = starting_indices_all[1:] if len(ending_indices_all) == len(starting_indices_all) else starting_indices_all
+                ibi_inds = np.array([(e, s) for (s, e) in zip(s, ending_indices[:-1])
+                                     if e <= event.event_frame_ind and event.event_frame_ind <= s])  # middle frame inside IBI
+                if len(ibi_inds) == 1:  # need fix: start end should contain up to IBI end
+                    # starting_indices, ending_indices = calc_start_end(event.tail.is_bout_frame_list[ibi_inds[0][1]])
+                    starting_indices = np.concatenate([starting_indices, [ibi_inds[0][1]]])
+                    logging.info("{1} event {0}: fixed starting={2}, end={3} (ibi {4})".format(
+                        event.event_name, event.outcome_str, starting_indices, ending_indices_all, ibi_inds))
+                elif len(ibi_inds) > 1:
+                    logging.error("{1} event {0}: not sure how to handle {2}".format(
+                        event.event_name, event.outcome_str, ibi_inds))
+            else:
+                logging.error("{1} event {0}: not sure how to handle {2}-{3}".format(
+                    event.event_name, event.outcome_str, starting_indices_all, ending_indices_all))
+
         if len(ending_indices) == len(starting_indices):
             is_ibi_ok = np.array([(s - e) > 0 for (s, e) in zip(starting_indices[1:], ending_indices[:-1])])
             if is_ibi_ok.all() and len(is_ibi_ok) > 0 and len(starting_indices) > 1:  # We get all()=True when len=0
                 ending_indices = ending_indices[:-1]
         elif len(ending_indices) == len(starting_indices) + 1:
-            if np.array([(s - e) > 0 for (s, e) in zip(starting_indices, ending_indices[:-1])]).all():
+            is_ibi_ok = np.array([(s - e) > 0 for (s, e) in zip(starting_indices, ending_indices[:-1])])
+            if is_ibi_ok.all() and len(is_ibi_ok) > 0 and len(starting_indices) > 1:  # We get all()=True when len=0
                 starting_indices = np.concatenate([[0], starting_indices])
 
         # make sure IBIs are identified as expected (without length, but all is correct for IBI count)
@@ -632,6 +652,11 @@ class ExpandedEvent(Event):
                     event.event_name, starting_indices, len(starting_indices), ending_indices, len(ending_indices),
                     event.event_frame_ind, event.outcome_str))
                 err_code = "bad-bout-len-below-" + str(validate_diff)
+
+        if "hit" in event.outcome_str or "miss" in event.outcome_str:
+            pass
+        elif "abort" in event.outcome_str:
+            pass
 
         return starting_indices, ending_indices, err_code
 
