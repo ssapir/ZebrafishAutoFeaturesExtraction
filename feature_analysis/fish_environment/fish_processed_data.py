@@ -639,8 +639,8 @@ class ExpandedEvent(Event):
                 if len(ibi_inds) == 1:  # need fix: start end should contain up to IBI end
                     # starting_indices, ending_indices = calc_start_end(event.tail.is_bout_frame_list[ibi_inds[0][1]])
                     starting_indices = np.concatenate([starting_indices, [ibi_inds[0][1]]])
-                    logging.info("{1} event {0}: fixed start={2}, end={3} (ibi {4})".format(
-                        event.event_name, event.outcome_str, starting_indices, ending_indices, ibi_inds))
+                    logging.info("{1} event {0}: fixed start={2}, end={3} (mid={5}, ibi {4})".format(
+                        event.event_name, event.outcome_str, starting_indices, ending_indices, ibi_inds, event.event_frame_ind))
                 elif len(ibi_inds) > 1:
                     logging.error("{1} event {0}: not sure how to handle {2}".format(
                         event.event_name, event.outcome_str, ibi_inds))
