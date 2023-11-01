@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-dataset_path='/ems/elsc-labs/avitan-l/Lab-Shared/Data/FeedingAssay2020/'
-dataset_path_features='/ems/elsc-labs/avitan-l/Lab-Shared/Analysis/FeedingAssaySapir'
+dataset_path='/ems/Lab-Shared/Data/'
+dataset_path_features='/ems/Lab-Shared/Analysis/'
 dir=`dirname $(realpath $0)`
 prefix="202"
 postfix="_sb"
