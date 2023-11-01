@@ -34,7 +34,7 @@ if __name__ == '__main__':
     if len(sys.argv) >= 1:  # argv[0] is script name. If any args given, use them
         data_path, fish_name = parse_input_from_command()
     else:
-        data_path = "E:\\Lab-Shared\\Data\\FeedingAssay2020\\"
+        data_path = "E:\\Lab-Shared\\Data\\"
         fish_name = "*"  # wildcard fish name
 
     full_files_list_ = glob.glob(os.path.join(data_path, fish_name, "processed_data", "*_preprocessed.mat"))
